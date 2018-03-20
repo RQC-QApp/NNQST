@@ -8,3 +8,6 @@
 * nn_qst:
     * NN for QST [[dev1](nn_qst/dev1.ipynb)]
     * RBM [[rbm](nn_qst/rbm.ipynb)]
+* qrbm:
+    * Quantum RBM [[main.ipynb](qrbm/simple_demo.ipynb)]
+        * Uses VQE and QAOA from [Grove](https://github.com/rigetticomputing/grove) package by Rigetti
