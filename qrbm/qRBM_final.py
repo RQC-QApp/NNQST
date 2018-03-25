@@ -135,7 +135,7 @@ class qRBM:
             quantum_percentage (float): Fraction of update rule to be dictated by quantum circuit. Defaults to 1.0.
             classical_percentage (float): Fraction of update rule to be dictated by classical CD-1. Defaults to 0.0.
 
-        NOTE: quantum_percentage + classical_percentage =1.0 must hold!!!
+        NOTE: quantum_percentage + classical_percentage = 1.0 must hold!!!
 
         """
         assert(quantum_percentage + classical_percentage == 1.0)
@@ -152,6 +152,7 @@ class qRBM:
             new_weights = copy.deepcopy(self.WEIGHTS)
             new_bias = copy.deepcopy(self.BIAS)
 
+            # v------angles------v and program--v
             model_nus, model_gammas, model_para_prog = self.make_unclamped_QAOA()
             model_sampling_prog = model_para_prog(np.hstack((model_nus, model_gammas)))
 
@@ -192,8 +193,9 @@ class qRBM:
                 print('-' * 80)
 
             # Can update weights with weighted avg of quantum and classical.
-            new_weights += learning_rate * (pos_phase - (classical_percentage * neg_phase_classical +
-                                            quantum_percentage * neg_phase_quantum))
+            new_weights += learning_rate * (pos_phase -
+                                            (classical_percentage * neg_phase_classical +
+                                             quantum_percentage * neg_phase_quantum))
 
             self.WEIGHTS = copy.deepcopy(new_weights)
             self.BIAS = copy.deepcopy(new_bias)
