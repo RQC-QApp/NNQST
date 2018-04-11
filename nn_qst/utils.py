@@ -1,4 +1,34 @@
 import numpy as np
+from collections import Counter
+
+
+def into_dict(dataset):
+    """Convert list of np.array into dict.
+
+    Args:
+        dataset (np.array): Sampled or ideal states.
+
+    """
+    dataset = dataset.copy()
+    dataset = list(map(lambda x: x.astype('int'), dataset))
+    dataset = list(map(lambda x: ''.join(map(str, x)), dataset))
+    dataset = dict(Counter(dataset))
+
+    num_samples = sum(list(dataset.values()))
+
+    for state in dataset:
+        dataset[state] = np.sqrt(dataset[state] / num_samples)
+
+    return dataset
+
+
+def fidelity_dicts(dict1, dict2):
+    res = 0
+    for state in dict1:
+        if state in dict2:
+            res += dict1[state] * dict2[state]
+    res = res ** 2
+    return res
 
 
 def fidelity(state1, state2):
@@ -117,6 +147,29 @@ def Q_b(sigma, params, u=None):
         return u * tmp
     else:
         return tmp
+
+
+def grad_lambda_ksi(dataset, params):
+    """(A14) of arxive paper. (13) of Nature paper.
+
+    """
+    res = averaged_D_lambda_p_lambda(dataset, params)
+
+    N_b = 1  # TODO: In this version we have only one basis, but in general: N_b = len(datasets).
+    res['W'] *= N_b
+    res['b'] *= N_b
+    res['c'] *= N_b
+
+    # Due to we have only one basis we calculate just one component.
+    tmp = averaged_D_lambda_Q_b(dataset, params)
+    tmp['W'] = tmp['W'].real / len(dataset)
+    tmp['b'] = tmp['b'].real / len(dataset)
+    tmp['c'] = tmp['c'].real / len(dataset)
+
+    res['W'] -= tmp['W']
+    res['b'] -= tmp['b']
+    res['c'] -= tmp['c']
+    return res
 
 
 def averaged_D_lambda_Q_b(batch, params):
