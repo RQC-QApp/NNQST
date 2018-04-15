@@ -1,4 +1,6 @@
 import numpy as np
+import utils
+import paper_functions
 
 
 class RBM:
@@ -7,6 +9,7 @@ class RBM:
         self.num_hidden = num_hidden
         self.num_visible = num_visible
         self.debug_print = debug_print
+        self.objectives = list()
 
         # Initialize a weight matrix, of dimensions (num_visible x num_hidden), using
         # a uniform distribution between -sqrt(6. / (num_hidden + num_visible))
@@ -74,8 +77,10 @@ class RBM:
             self.weights += learning_rate * ((pos_associations - neg_associations) / num_examples)
 
             error = np.sum((data - neg_visible_probs) ** 2)
-            if self.debug_print:
-                print("Epoch %s: error is %s" % (epoch, error))
+            if self.debug_print and epoch % 50 == 0:
+                # print("Epoch %s: error is %s" % (epoch, error))
+                self.objectives.append(paper_functions.objective_func(self.weights, self.weights, data))
+                print("Epoch %s: objective is %s" % (epoch, self.objectives[-1]))
 
     def run_visible(self, data, probs=False):
         """
@@ -199,7 +204,7 @@ class RBM:
             visible_states = visible_probs > np.random.rand(self.num_visible + 1)
             samples[i, :] = visible_states
 
-            # Ignore the bias units (the first column), since they're always set to 1.
+        # Ignore the bias units (the first column), since they're always set to 1.
         return samples[:, 1:]
 
     def _logistic(self, x):

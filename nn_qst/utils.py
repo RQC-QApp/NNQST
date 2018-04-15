@@ -1,5 +1,8 @@
-import numpy as np
+import matplotlib.pyplot as plt
 from collections import Counter
+import numpy as np
+import itertools
+import paper_functions
 
 
 def into_dict(dataset):
@@ -39,210 +42,66 @@ def normalize(vector):
     return np.sqrt(vector / vector.sum())
 
 
-def p_k_sigma_h(sigma, h, weights, b_bias, c_bias):
-    """(A2) of arxive paper.
+def plot_histogram(data, number_to_keep=False):
+    """Plot a histogram of data.
 
+    data is a dictionary of  {'000': 5, '010': 113, ...}
+    number_to_keep is the number of terms to plot and rest is made into a
+    single bar called other values
     """
-    tot = h.dot(weights).dot(sigma)
-    tot += sigma.dot(b_bias)
-    tot += h.dot(c_bias)
-    return np.exp(tot)
+    if number_to_keep is not False:
+        data_temp = dict(Counter(data).most_common(number_to_keep))
+        data_temp["rest"] = sum(data.values()) - sum(data_temp.values())
+        data = data_temp
+
+    labels = sorted(data)
+    values = np.array([data[key] for key in labels], dtype=float)
+    pvalues = values / sum(values)
+    numelem = len(values)
+    ind = np.arange(numelem)  # the x locations for the groups
+    width = 0.35  # the width of the bars
+    _, ax = plt.subplots(figsize=(20, 10))
+    rects = ax.bar(ind, pvalues, width, color='seagreen')
+    # add some text for labels, title, and axes ticks
+    ax.set_ylabel('Probabilities', fontsize=12)
+    ax.set_xticks(ind)
+    ax.set_xticklabels(labels, fontsize=12, rotation=70)
+    ax.set_ylim([0., min([1.2, max([1.2 * val for val in pvalues])])])
+    # attach some text labels
+    for rect in rects:
+        height = rect.get_height()
+        ax.text(rect.get_x() + rect.get_width() / 2., 1.05 * height,
+                '%f' % float(height),
+                ha='center', va='bottom')
+    plt.show()
 
 
-def boltzmann_margin_distribution(sigma, weights, b_bias, c_bias):
-    """(A3) of arxive paper. (7) of Nature paper.
+def fidelity_RBM(trained_RBM, ideal_state, num_samples=1000, num_steps=10):
+    sampled_from_RBM = np.array([trained_RBM.daydream(num_steps)[-1] for _ in range(num_samples)])
+    sampled_from_RBM = into_dict(sampled_from_RBM)
 
-    """
-    tmp = weights.dot(sigma)
-    tmp += c_bias
-    tmp = np.exp(tmp)
-    tmp += 1
-    tmp = np.log(tmp)
-    tmp = tmp.sum()
-    tmp += sigma.dot(b_bias)
-    return np.exp(tmp)
+    return fidelity_dicts(ideal_state, sampled_from_RBM), sampled_from_RBM
 
 
-def p_k(k, sigma, params):
-    """(A3) of arxive paper.
+def dataset_w(n_vis, n_samples, hist=False):
+    sparsed_states = np.eye(n_vis)
+    random_indices = np.random.randint(0, n_vis, n_samples)
+    dataset = []
+    for i in random_indices:
+        dataset.append(sparsed_states[i])
 
-    Args:
-        k (str): either "lambda" or "mu".
-
-    """
-    return boltzmann_margin_distribution(sigma, params[k]['W'], params[k]['b'], params[k]['c'])
-
-
-def p_lambda(sigma, params):
-    """(A3)~
-
-    """
-    return p_k('lambda', sigma, params)
+    dataset = np.array(dataset)
+    if hist:
+        plt.hist(random_indices, bins=n_vis)
+        plt.show()
+    return dataset
 
 
-def p_mu(sigma, params):
-    """(A3)~
-
-    """
-    return p_k('mu', sigma, params)
+def ideal_w(n_vis):
+    sparsed_states = np.eye(n_vis)
+    return sparsed_states
 
 
-def phi_mu(sigma, params):
-    """(A4)~
-
-    """
-    return np.log(p_mu(sigma, params))
-
-
-def psi_lambda_mu(sigma, Z_lambda, params):
-    """(A4) of arxive paper.
-
-    """
-    tmp = 1j * phi_mu(sigma, params) / 2
-    tmp = np.exp(tmp)
-    tmp *= np.sqrt(p_lambda(sigma, params) / Z_lambda)
-    return tmp
-
-
-def D_k(k, sigma, params):
-    """(A8) and (A9) of arxive paper.
-
-    Args:
-        sigma (np.array): input.
-
-    """
-    weights = params[k]['W']
-    c_bias = params[k]['c']
-
-    grad_b = sigma.copy()  # (A11).
-
-    tmp = weights.dot(sigma)
-    tmp += c_bias
-    tmp = np.exp(tmp)
-    grad_c = tmp / (1 + tmp)  # (A12).
-
-    grad_W = np.outer(grad_c, sigma)  # (A10).
-
-    res = {
-        'W': grad_W,
-        'c': grad_c,
-        'b': grad_b
-    }
-
-    return res
-
-
-def Q_b(sigma, params, u=None):
-    """(A13) of arxive paper. (12) of Nature paper.
-
-    Args:
-        u (?type?): basis transformation matrix.
-
-    """
-    tmp = 1j * phi_mu(sigma, params) / 2
-    tmp = np.exp(tmp)
-    tmp *= np.sqrt(p_lambda(sigma, params))
-
-    if u:
-        return u * tmp
-    else:
-        return tmp
-
-
-def grad_lambda_ksi(dataset, params):
-    """(A14) of arxive paper. (13) of Nature paper.
-
-    """
-    res = averaged_D_lambda_p_lambda(dataset, params)
-
-    N_b = 1  # TODO: In this version we have only one basis, but in general: N_b = len(datasets).
-    res['W'] *= N_b
-    res['b'] *= N_b
-    res['c'] *= N_b
-
-    # Due to we have only one basis we calculate just one component.
-    tmp = averaged_D_lambda_Q_b(dataset, params)
-    tmp['W'] = tmp['W'].real / len(dataset)
-    tmp['b'] = tmp['b'].real / len(dataset)
-    tmp['c'] = tmp['c'].real / len(dataset)
-
-    res['W'] -= tmp['W']
-    res['b'] -= tmp['b']
-    res['c'] -= tmp['c']
-    return res
-
-
-def averaged_D_lambda_Q_b(batch, params):
-    """(A16) of arxive paper. (15) of Nature paper.
-
-    """
-    quasi_probs = None
-    for x in batch:
-        # TODO: How to pass basis transformation matrices here?
-        if quasi_probs is None:
-            quasi_probs = Q_b(x, params)
-        else:
-            quasi_probs += Q_b(x, params)
-
-    res_W = None
-    res_b = None
-    res_c = None
-    for x in batch:
-        gradients = D_k('lambda', x, params)
-        quasi_prob = Q_b(x, params)
-
-        if res_W is None:
-            res_W = quasi_prob * gradients["W"]
-            res_b = quasi_prob * gradients["b"]
-            res_c = quasi_prob * gradients["c"]
-        else:
-            res_W += quasi_prob * gradients["W"]
-            res_b += quasi_prob * gradients["b"]
-            res_c += quasi_prob * gradients["c"]
-
-    res_W /= quasi_probs
-    res_b /= quasi_probs
-    res_c /= quasi_probs
-
-    res = {
-        'W': res_W,
-        'c': res_c,
-        'b': res_b
-    }
-
-    return res
-
-
-def averaged_D_lambda_p_lambda(batch, params):
-    """(A18) of arxive paper. (17) of Nature paper.
-
-    """
-    n = len(batch)
-
-    res_W = None
-    res_b = None
-    res_c = None
-
-    for x in batch:
-        gradients = D_k('lambda', x, params)
-
-        if res_W is None:
-            res_W = gradients["W"]
-            res_b = gradients["b"]
-            res_c = gradients["c"]
-        else:
-            res_W += gradients["W"]
-            res_b += gradients["b"]
-            res_c += gradients["c"]
-
-    res_W /= n
-    res_b /= n
-    res_c /= n
-
-    res = {
-        'W': res_W,
-        'c': res_c,
-        'b': res_b
-    }
-
-    return res
+def get_all_states(n):
+    all_states = np.array(list(map(np.array, itertools.product([0, 1], repeat=n))))
+    return all_states
