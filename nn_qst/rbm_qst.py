@@ -54,9 +54,12 @@ class RBM_QST:
             neg_visible_probs = self._logistic(neg_visible_activations)
             neg_visible_probs[:, 0] = 1  # Fix the bias unit.
 
-            if debug and epoch % 50 == 0:
+            if debug and epoch % 1 == 0:
                 self.objectives.append(paper_functions.objective_func(self.weights_lambda, self.weights_mu, data))
                 print("Epoch %s: objective is %s" % (epoch, self.objectives[-1]))
+
+                # if len(self.objectives) > 2 and self.objectives[-1] > self.objectives[-2]:
+                #     learning_rate *= -1
 
             if overlap and epoch % overlap_each == 0:
                 sampled_from_RBM = np.array([self.daydream(onum_steps)[-1] for _ in range(onum_samples)])
@@ -65,7 +68,8 @@ class RBM_QST:
                 ideal_state = into_dict(ideal_state)
                 print('Fidelity is {}'.format(utils.fidelity_dicts(ideal_state, sampled_from_RBM)))
 
-            gradients = paper_functions.grad_lambda_ksi(data, self.weights_lambda, self.weights_mu, precise)
+            # gradients = paper_functions.grad_lambda_ksi(data, self.weights_lambda, self.weights_mu, precise)
+            gradients = paper_functions.grad_lambda_ksi_MANUAL(data, self.weights_lambda, self.weights_mu)
             self.weights_lambda -= learning_rate * gradients
 
     def daydream(self, num_samples, debug=False):

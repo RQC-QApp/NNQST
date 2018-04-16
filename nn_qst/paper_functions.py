@@ -5,23 +5,18 @@ import itertools
 import utils
 
 
-def Z_lambda(num_units, weights):
-    res = 0
-
+def Z_lambda(weights):
+    num_units = weights.shape[0] - 1
     all_states = utils.get_all_states(num_units)
     all_states = np.insert(all_states, 0, 1, axis=1)
-
-    for state in all_states:
-        res += p_k(state, weights)
-
+    res = np.sum(list(map(lambda x: p_k(x, weights), all_states)))
     return res
 
 
 def objective_func(weights_lambda, weights_mu, dataset):
     res = 0
 
-    num_units = weights_lambda.shape[0] - 1
-    stat_sum = Z_lambda(num_units, weights_lambda)
+    stat_sum = Z_lambda(weights_lambda)
     res = np.sum(list(map(lambda x: np.log(psi_lambda_mu(x, stat_sum, weights_lambda, weights_mu) ** 2), dataset)))
 
     res /= len(dataset)
@@ -126,6 +121,24 @@ def Q_b(sigma, weights_lambda, weights_mu, u=None):
     return tmp
 
 
+def grad_lambda_ksi_MANUAL(dataset, weights_lambda, weights_mu):
+    """(A14) of arxive paper. (13) of Nature paper.
+
+    """
+    stat_sum = Z_lambda(weights_lambda)
+
+    num_units = weights_lambda.shape[0] - 1
+    all_states = utils.get_all_states(num_units)
+    all_states = np.insert(all_states, 0, 1, axis=1)
+    tmp1 = np.sum(list(map(lambda x: p_k(x, weights_lambda) * D_k(x, weights_lambda), all_states)), axis=0)
+    tmp1 /= stat_sum
+
+    tmp2 = np.sum(list(map(lambda x: D_k(x, weights_lambda), dataset)), axis=0)  # quasi_prob * gradients.
+    res = (tmp1 - tmp2) / len(dataset)
+
+    return res
+
+
 def grad_lambda_ksi(dataset, weights_lambda, weights_mu, precise=False):
     """(A14) of arxive paper. (13) of Nature paper.
 
@@ -162,8 +175,7 @@ def averaged_D_lambda_p_lambda_PRECISE(batch, weights):
     """(A18) of arxive paper. (17) of Nature paper.
 
     """
-    num_units = weights.shape[0] - 1
-    stat_sum = Z_lambda(num_units, weights)
+    stat_sum = Z_lambda(weights)
 
     # Sum of gradients.
     res = list(map(lambda x: p_k(x, weights) * D_k(x, weights), batch))
