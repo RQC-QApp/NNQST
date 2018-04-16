@@ -54,7 +54,7 @@ class RBM_QST:
             neg_visible_probs = self._logistic(neg_visible_activations)
             neg_visible_probs[:, 0] = 1  # Fix the bias unit.
 
-            if debug and epoch % 1 == 0:
+            if debug and epoch % 10 == 0:
                 self.objectives.append(paper_functions.objective_func(self.weights_lambda, self.weights_mu, data))
                 print("Epoch %s: objective is %s" % (epoch, self.objectives[-1]))
 
