@@ -30,7 +30,7 @@ class RBM_QST:
         self.weights_mu = np.insert(self.weights_mu, 0, 0, axis=0)
         self.weights_mu = np.insert(self.weights_mu, 0, 0, axis=1)
 
-    def train(self, data, ideal_state, max_epochs=1000, overlap_each=100, onum_samples=1000, onum_steps=100, learning_rate=0.1, overlap=False, debug=False, precise=False):
+    def train(self, data_raw, ideal_state, max_epochs=1000, overlap_each=100, onum_samples=1000, onum_steps=100, learning_rate=0.1, overlap=False, debug=False, precise=False):
         """Train the machine.
 
         Args:
@@ -38,28 +38,24 @@ class RBM_QST:
                 of the states of visible units.
 
         """
-        num_examples = data.shape[0]
+        num_examples = data_raw.shape[0]
 
+        #############
+        # Converting dataset to a histogram representation
+        
+        occurs, data_hist = utils.dataset_to_hist(data_raw)        
+        #############
+        
         # Insert bias units of 1 into the first column.
-        data = np.insert(data, 0, 1, axis=1)
-
+        data_hist = np.insert(data_hist, 0, 1, axis=1)        
+        data_raw = np.insert(data_raw, 0, 1, axis=1)        
+        
+        print(data_hist)
+        
         for epoch in range(max_epochs):
-            pos_hidden_activations = np.dot(data, self.weights_lambda)
-
-            pos_hidden_probs = self._logistic(pos_hidden_activations)
-            pos_hidden_probs[:, 0] = 1  # Fix the bias unit.
-            pos_hidden_states = pos_hidden_probs > np.random.rand(num_examples, self.num_hidden + 1)
-
-            neg_visible_activations = np.dot(pos_hidden_states, self.weights_lambda.T)
-            neg_visible_probs = self._logistic(neg_visible_activations)
-            neg_visible_probs[:, 0] = 1  # Fix the bias unit.
-
-            if debug and epoch % 1 == 0:
-                self.objectives.append(paper_functions.objective_func(self.weights_lambda, self.weights_mu, data))
+            if debug and epoch % 100 == 0:
+                self.objectives.append(paper_functions.objective_func(self.weights_lambda, self.weights_mu, data_raw))
                 print("Epoch %s: objective is %s" % (epoch, self.objectives[-1]))
-
-                # if len(self.objectives) > 2 and self.objectives[-1] > self.objectives[-2]:
-                #     learning_rate *= -1
 
             if overlap and epoch % overlap_each == 0:
                 sampled_from_RBM = np.array([self.daydream(onum_steps)[-1] for _ in range(onum_samples)])
@@ -69,7 +65,7 @@ class RBM_QST:
                 print('Fidelity is {}'.format(utils.fidelity_dicts(ideal_state, sampled_from_RBM)))
 
             # gradients = paper_functions.grad_lambda_ksi(data, self.weights_lambda, self.weights_mu, precise)
-            gradients = paper_functions.grad_lambda_ksi_MANUAL(data, self.weights_lambda, self.weights_mu)
+            gradients = paper_functions.grad_lambda_ksi_MANUAL(occurs, data_hist, self.weights_lambda, self.weights_mu)
             self.weights_lambda -= learning_rate * gradients
 
     def daydream(self, num_samples, debug=False):

@@ -9,7 +9,8 @@ def Z_lambda(weights):
     num_units = weights.shape[0] - 1
     all_states = utils.get_all_states(num_units)
     all_states = np.insert(all_states, 0, 1, axis=1)
-    res = np.sum(list(map(lambda x: p_k(x, weights), all_states)))
+    #res = np.sum( np.array( list(map(lambda x: p_k(x, weights), all_states))) )
+    res = np.sum( list(map(lambda x: p_k(x, weights), all_states)) )
     return res
 
 
@@ -86,6 +87,7 @@ def D_k(sigma, weights):
         sigma (np.array): input.
 
     """
+    
     sigma[0] = 1
     grad_b = sigma[1:].copy()
 
@@ -112,6 +114,7 @@ def Q_b(sigma, weights_lambda, weights_mu, u=None):
         u (?type?): basis transformation matrix.
 
     """
+    
     tmp = np.exp(1j * phi_k(sigma, weights_mu) / 2)
     tmp *= np.sqrt(p_k(sigma, weights_lambda))
 
@@ -121,7 +124,8 @@ def Q_b(sigma, weights_lambda, weights_mu, u=None):
     return tmp
 
 
-def grad_lambda_ksi_MANUAL(dataset, weights_lambda, weights_mu):
+
+def grad_lambda_ksi_MANUAL(occurs, dataset_hist, weights_lambda, weights_mu):
     """(A14) of arxive paper. (13) of Nature paper.
 
     """
@@ -130,12 +134,17 @@ def grad_lambda_ksi_MANUAL(dataset, weights_lambda, weights_mu):
     num_units = weights_lambda.shape[0] - 1
     all_states = utils.get_all_states(num_units)
     all_states = np.insert(all_states, 0, 1, axis=1)
-    tmp1 = np.sum(list(map(lambda x: p_k(x, weights_lambda) * D_k(x, weights_lambda), all_states)), axis=0)
+    
+    tmp1 = np.sum( list(map(lambda x: p_k(x, weights_lambda) * D_k(x, weights_lambda), all_states)), axis=0 )
+    
     tmp1 /= stat_sum
-
-    tmp2 = np.sum(list(map(lambda x: D_k(x, weights_lambda), dataset)), axis=0)  # quasi_prob * gradients.
-    res = (tmp1 - tmp2) / len(dataset)
-
+        
+    tmp2 = np.zeros((len(dataset_hist), weights_lambda.shape[0], weights_lambda.shape[1]))
+        
+    for i in range(len(dataset_hist)):
+        tmp2[i,:,:] = occurs[i] * D_k(dataset_hist[i,:], weights_lambda)
+        
+    res = tmp1 - np.sum( tmp2, axis = 0 ) / np.sum(occurs)
     return res
 
 
@@ -153,7 +162,7 @@ def grad_lambda_ksi(dataset, weights_lambda, weights_mu, precise=False):
 
     # Due to we have only one basis we calculate just one component.
     tmp2 = averaged_D_lambda_Q_b(dataset, weights_lambda, weights_mu)
-    tmp2 = tmp2.real / len(dataset)
+    tmp2 = tmp2.real / len(dataset) 
 
     return tmp1 - tmp2
 
@@ -178,7 +187,7 @@ def averaged_D_lambda_p_lambda_PRECISE(batch, weights):
     stat_sum = Z_lambda(weights)
 
     # Sum of gradients.
-    res = list(map(lambda x: p_k(x, weights) * D_k(x, weights), batch))
+    res = np.array( list(map(lambda x: p_k(x, weights) * D_k(x, weights), batch)) )
     res = np.sum(res, axis=0)
     res /= stat_sum
 
