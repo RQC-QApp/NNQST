@@ -127,9 +127,8 @@ def Q_b(sigma, weights_lambda, weights_mu, u=None):
 def grad_lambda_ksi_MANUAL(occurs, dataset_hist, weights_lambda, weights_mu):
     """(A14) of arxive paper. (13) of Nature paper.
 
-    """
-    tmp2 = np.sum(list(map(lambda x: D_k(x, weights_lambda), dataset)), axis=0)  # quasi_prob * gradients.
-
+    """    
+    stat_sum = Z_lambda(weights_lambda)
     num_units = weights_lambda.shape[0] - 1
     all_states = utils.get_all_states(num_units)
     all_states = np.insert(all_states, 0, 1, axis=1)

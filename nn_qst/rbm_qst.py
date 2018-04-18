@@ -44,15 +44,16 @@ class RBM_QST:
         # Converting dataset to a histogram representation
         
         occurs, data_hist = utils.dataset_to_hist(data_raw)        
-        #############
-        
+        #############        
         # Insert bias units of 1 into the first column.
         data_hist = np.insert(data_hist, 0, 1, axis=1)        
         data_raw = np.insert(data_raw, 0, 1, axis=1)        
         
         
         for epoch in range(max_epochs):
-            print("Epoch %s: objective is %s" % (epoch, self.objectives[-1]))
+            if debug and epoch % 100 == 0:
+                self.objectives.append(paper_functions.objective_func(self.weights_lambda, self.weights_mu, data_raw))
+                print("Epoch %s: objective is %s" % (epoch, self.objectives[-1]))
 
             if overlap and epoch % overlap_each == 0:
                 sampled_from_RBM = np.array([self.daydream(onum_steps)[-1] for _ in range(onum_samples)])
