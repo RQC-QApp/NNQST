@@ -48,7 +48,7 @@ def boltzmann_margin_distribution(sigma, weights):
     tmp = np.log(tmp)
     tmp = np.sum(tmp)
 
-    tmp += sigma[1:].dot(weights[1:, 0])  # b.
+    tmp += np.dot(sigma[1:], (weights[1:, 0]))  # b.
 
     return np.exp(tmp)
 
@@ -89,13 +89,12 @@ def D_k(sigma, weights):
     """
     
     sigma[0] = 1
-    grad_b = sigma[1:].copy()
-
     tmp = np.dot(sigma, weights)
     tmp = tmp[1:]  # Ignore bias unit.
     tmp = np.exp(tmp)
     grad_c = tmp / (1 + tmp)
 
+    grad_b = sigma[1:].copy()
     grad_W = np.outer(grad_b, grad_c)
 
     res = np.insert(grad_W, 0, 0, axis=0)
@@ -129,7 +128,7 @@ def grad_lambda_ksi_MANUAL(occurs, dataset_hist, weights_lambda, weights_mu):
     """(A14) of arxive paper. (13) of Nature paper.
 
     """
-    stat_sum = Z_lambda(weights_lambda)
+    tmp2 = np.sum(list(map(lambda x: D_k(x, weights_lambda), dataset)), axis=0)  # quasi_prob * gradients.
 
     num_units = weights_lambda.shape[0] - 1
     all_states = utils.get_all_states(num_units)
