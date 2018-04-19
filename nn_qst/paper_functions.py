@@ -135,7 +135,8 @@ def grad_lambda_ksi_MANUAL(occurs, dataset_hist, weights_lambda, weights_mu):
     
     tmp1 = np.sum( list(map(lambda x: p_k(x, weights_lambda) * D_k(x, weights_lambda), all_states)), axis=0 )
     
-    tmp1 /= stat_sum
+    tmp1 /= np.sum(occurs)
+    #tmp1 /= stat_sum
         
     tmp2 = np.zeros((len(dataset_hist), weights_lambda.shape[0], weights_lambda.shape[1]))
         

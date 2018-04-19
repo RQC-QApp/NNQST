@@ -44,7 +44,11 @@ class RBM_QST:
         # Converting dataset to a histogram representation
         
         occurs, data_hist = utils.dataset_to_hist(data_raw)        
-        #############        
+        # selecting only states with nonzero occurencies
+        data_hist = data_hist[occurs!=0]        
+        occurs = occurs[occurs!=0]        
+        ################
+        
         # Insert bias units of 1 into the first column.
         data_hist = np.insert(data_hist, 0, 1, axis=1)        
         data_raw = np.insert(data_raw, 0, 1, axis=1)        
