@@ -1,4 +1,5 @@
 import numpy as np
+
 import utils
 import paper_functions
 
@@ -53,8 +54,64 @@ class RBM_QST:
                 print("Epoch %s: objective is %s" % (epoch, self.objectives[-1]))
 
             # gradients = paper_functions.grad_lambda_ksi_MANUAL(occurs, data_hist, self.weights_lambda, self.weights_mu)
-            gradients = paper_functions.grad_lambda_ksi(occurs, data_hist, self.weights_lambda, self.weights_mu, self, precise)
+            # gradients = paper_functions.grad_lambda_ksi(occurs, data_hist, self.weights_lambda, self.weights_mu, self, precise)
+
+            ###
+            # Gradients calculating.
+            #
+            N_b = 1  # TODO: In this version we have only one basis, but in general: N_b = len(datasets).
+            tmp1 = N_b * self._averaged_D_lambda_p_lambda(precise=precise)
+
+            # Due to we have only one basis we calculate just one component.
+            tmp2 = self._averaged_D_lambda_Q_b(occurs, data_hist)
+            tmp2 = tmp2.real
+
+            gradients = tmp1 - tmp2
+            ##################
             self.weights_lambda -= learning_rate * gradients
+
+    def _averaged_D_lambda_p_lambda(self, precise=False, num_samples=50, num_steps=10):
+        """(A18) of arxive paper. (17) of Nature paper.
+
+        """
+        res = None
+        if precise:
+            num_units = self.weights_lambda.shape[0] - 1
+            all_states = utils.get_all_states(num_units)
+            all_states = np.insert(all_states, 0, 1, axis=1)
+
+            # Sum of gradients.
+            res = np.array([paper_functions.p_k(x, self.weights_lambda) *
+                            paper_functions.D_k(x, self.weights_lambda)
+                            for x in all_states])
+            res = np.sum(res, axis=0)
+            res /= paper_functions.Z_lambda(self.weights_lambda)
+
+        else:
+            sampled = np.array([self.daydream(num_steps)[-1] for _ in range(num_samples)]).copy()
+            sampled = np.insert(sampled, 0, 1, axis=1)
+
+            res = np.array([paper_functions.D_k(x, self.weights_lambda) for x in sampled])
+            res = np.sum(res, axis=0)  # Sum of gradients.
+            res /= num_samples
+
+        return res
+
+    def _averaged_D_lambda_Q_b(self, occurs, dataset_hist):
+        """(A16) of arxive paper. (15) of Nature paper.
+
+        """
+        # TODO: How to pass basis transformation matrices here?
+        quasi_probs = np.sum([occurs[i] * paper_functions.Q_b(dataset_hist[i, :], self.weights_lambda, self.weights_mu)
+                              for i in range(len(dataset_hist))])
+
+        res = np.array([occurs[i] * paper_functions.D_k(dataset_hist[i, :], self.weights_lambda) *
+                        paper_functions.Q_b(dataset_hist[i, :], self.weights_lambda, self.weights_mu)
+                        for i in range(len(dataset_hist))])
+        res = np.sum(res, axis=0)  # quasi_prob * gradients.
+        res /= quasi_probs
+
+        return res
 
     def daydream(self, num_samples, debug=False):
         """Randomly initialize the visible units once, and start running alternating Gibbs sampling steps

@@ -143,69 +143,6 @@ def grad_lambda_ksi_MANUAL(occurs, dataset_hist, weights_lambda, weights_mu):
     return res
 
 
-def grad_lambda_ksi(occurs, dataset_hist, weights_lambda, weights_mu, rbm_object, precise=False):
-    """(A14) of arxive paper. (13) of Nature paper.
-
-    """
-    N_b = 1  # TODO: In this version we have only one basis, but in general: N_b = len(datasets).
-
-    tmp1 = None
-    if precise:
-        tmp1 = N_b * averaged_D_lambda_p_lambda_PRECISE(weights_lambda)
-    else:
-        tmp1 = N_b * averaged_D_lambda_p_lambda(rbm_object, weights_lambda)
-
-    # Due to we have only one basis we calculate just one component.
-    tmp2 = averaged_D_lambda_Q_b(occurs, dataset_hist, weights_lambda, weights_mu)
-    tmp2 = tmp2.real
-
-    return tmp1 - tmp2
-
-
-def averaged_D_lambda_p_lambda(rbm_object, weights, num_samples=100, num_steps=2):
-    """(A18) of arxive paper. (17) of Nature paper.
-
-    """
-    sampled_from_rbm = np.array([rbm_object.daydream(num_steps)[-1] for _ in range(num_samples)])
-    sampled_from_rbm = np.insert(sampled_from_rbm, 0, 1, axis=1)
-
-    res = np.array([D_k(x, weights) for x in sampled_from_rbm])
-    res = np.sum(res, axis=0)  # Sum of gradients.
-    res /= num_samples
-
-    return res
-
-
-def averaged_D_lambda_p_lambda_PRECISE(weights):
-    """(A18) of arxive paper. (16) of Nature paper.
-
-    """
-    num_units = weights.shape[0] - 1
-    all_states = utils.get_all_states(num_units)
-    all_states = np.insert(all_states, 0, 1, axis=1)
-
-    # Sum of gradients.
-    res = np.array([p_k(x, weights) * D_k(x, weights) for x in all_states])
-    res = np.sum(res, axis=0)
-    res /= Z_lambda(weights)
-
-    return res
-
-
-def averaged_D_lambda_Q_b(occurs, dataset_hist, weights_lambda, weights_mu):
-    """(A16) of arxive paper. (15) of Nature paper.
-
-    """
-    # TODO: How to pass basis transformation matrices here?
-    quasi_probs = np.sum([occurs[i] * Q_b(dataset_hist[i, :], weights_lambda, weights_mu) for i in range(len(dataset_hist))])
-
-    res = np.array([occurs[i] * D_k(dataset_hist[i, :], weights_lambda) * Q_b(dataset_hist[i, :], weights_lambda, weights_mu) for i in range(len(dataset_hist))])
-    res = np.sum(res, axis=0)  # quasi_prob * gradients.
-    res /= quasi_probs
-
-    return res
-
-
 # def grad_lambda_ksi(dataset, weights_lambda, weights_mu, precise=False):
 #     """(A14) of arxive paper. (13) of Nature paper.
 #
