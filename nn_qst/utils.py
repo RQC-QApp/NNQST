@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from collections import Counter
 import numpy as np
 import itertools
+
 import paper_functions
 
 
@@ -10,6 +11,9 @@ def into_dict(dataset):
 
     Args:
         dataset (np.array): Sampled or ideal states.
+
+    Returns:
+        dict: {state: frequency}.
 
     """
     dataset = dataset.copy()
@@ -24,31 +28,25 @@ def into_dict(dataset):
 
     return dataset
 
-def spins_to_int(spins):    
-    ''' Converting binary string to integer representation '''
-    bin_spins = ''.join(str(int(el)) for el in spins)
-    int_spins = int(bin_spins, 2)
-    return int_spins
 
-def int_to_spins(int_representation, N_qubits): 
-    ''' Converting integer to a binary representation '''
-    str = '{'+"0:0{}".format(N_qubits)+'b}'
-    spins = np.array([ int(item) for item in list(str.format(int_representation)) ])
-    return spins 
-    
 def dataset_to_hist(dataset):
-    ''' Step 1: 
-        Converting binary a string to an integer representation'''    
-    int_dataset = np.array( [spins_to_int(dataset[i]) for i in range(len(dataset))] )
-    ''' Step 2: 
-        Creating a histogram of states, sorting the integer spin states'''    
-    hist = np.histogram(int_dataset, bins=list(range(int_dataset.max() + 2)))
-    occurs, hist_samples = hist[0], hist[1][:-1]
-    N_qubits = dataset.shape[1]
-    ''' Step 3: 
-        Converting back from integer to a binary representation'''        
-    bin_dataset = np.array( [int_to_spins(hist_samples[i], N_qubits) for i in range(len(hist_samples) )] )
-    return occurs, bin_dataset
+    """Turns `dataset` into statistics: elements and theirs occurrences.
+
+    Args:
+        dataset (np.array): Dataset of states.
+
+    Returns:
+        tuple: np.array of occurrences and np.array of states.
+
+    """
+    cntr = Counter(map(tuple, dataset))
+
+    tmp = list(cntr.items())
+    data_hist = list(map(lambda x: x[0], tmp))
+    data_hist = np.array(list(map(list, data_hist)), dtype=int)
+    occurs = np.array(list(map(lambda x: x[1], tmp)))
+
+    return occurs, data_hist
 
 
 def fidelity_dicts(dict1, dict2):

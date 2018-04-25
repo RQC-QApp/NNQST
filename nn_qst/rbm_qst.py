@@ -30,7 +30,7 @@ class RBM_QST:
         self.weights_mu = np.insert(self.weights_mu, 0, 0, axis=0)
         self.weights_mu = np.insert(self.weights_mu, 0, 0, axis=1)
 
-    def train(self, data_raw, ideal_state, max_epochs=1000, overlap_each=100, onum_samples=1000, onum_steps=100, learning_rate=0.1, overlap=False, debug=False, precise=False):
+    def train(self, data_raw, ideal_state, max_epochs=1000, learning_rate=0.1, debug=False, precise=False):
         """Train the machine.
 
         Args:
@@ -40,34 +40,20 @@ class RBM_QST:
         """
         num_examples = data_raw.shape[0]
 
-        #############
-        # Converting dataset to a histogram representation
-        
-        occurs, data_hist = utils.dataset_to_hist(data_raw)        
-        # selecting only states with nonzero occurencies
-        data_hist = data_hist[occurs!=0]        
-        occurs = occurs[occurs!=0]        
-        ################
-        
+        # Converting dataset to a histogram representation.
+        occurs, data_hist = utils.dataset_to_hist(data_raw)
+
         # Insert bias units of 1 into the first column.
-        data_hist = np.insert(data_hist, 0, 1, axis=1)        
-        data_raw = np.insert(data_raw, 0, 1, axis=1)        
-        
-        
+        data_hist = np.insert(data_hist, 0, 1, axis=1)
+        data_raw = np.insert(data_raw, 0, 1, axis=1)
+
         for epoch in range(max_epochs):
             if debug and epoch % 100 == 0:
                 self.objectives.append(paper_functions.objective_func(self.weights_lambda, self.weights_mu, data_raw))
                 print("Epoch %s: objective is %s" % (epoch, self.objectives[-1]))
 
-            if overlap and epoch % overlap_each == 0:
-                sampled_from_RBM = np.array([self.daydream(onum_steps)[-1] for _ in range(onum_samples)])
-                sampled_from_RBM = into_dict(sampled_from_RBM)
-
-                ideal_state = into_dict(ideal_state)
-                print('Fidelity is {}'.format(utils.fidelity_dicts(ideal_state, sampled_from_RBM)))
-
-            # gradients = paper_functions.grad_lambda_ksi(data, self.weights_lambda, self.weights_mu, precise)
-            gradients = paper_functions.grad_lambda_ksi_MANUAL(occurs, data_hist, self.weights_lambda, self.weights_mu)
+            # gradients = paper_functions.grad_lambda_ksi_MANUAL(occurs, data_hist, self.weights_lambda, self.weights_mu)
+            gradients = paper_functions.grad_lambda_ksi(occurs, data_hist, self.weights_lambda, self.weights_mu, self, precise)
             self.weights_lambda -= learning_rate * gradients
 
     def daydream(self, num_samples, debug=False):
