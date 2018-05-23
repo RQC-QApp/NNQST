@@ -1,7 +1,10 @@
-import qiskit
+import matplotlib.pyplot as plt
 from qiskit.tools.visualization import circuit_drawer, plot_histogram, plot_state
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister, QuantumProgram
 from qiskit import available_backends, execute
+import qiskit
+import numpy as np
+import itertools
 
 
 def n_controlled_Z_12(circuit, controls, target):
@@ -104,3 +107,82 @@ def inversion_about_average(circuit, f_in, aux, n):
 
     circuit.x(f_in)
     circuit.h(f_in)
+
+
+def build_oracle(qc, f_in, aux, query):
+    """Building oracle which corresponds to `query`.
+
+    """
+    query = query[::-1]
+    for i in range(len(query)):
+        if query[i] == '0':
+            qc.x(f_in[i])
+
+    target = f_in[0]
+    controls = [f_in[i] for i in range(1, len(f_in))]
+
+    n_controlled_Z(qc, controls, target, aux)
+
+    for i in range(len(query)):
+        if query[i] == '0':
+            qc.x(f_in[i])
+
+    return qc
+
+
+def build_diffusion_operator(qc, f_in, aux):
+    """Building Grover's diffusion operator.
+
+    """
+    target = f_in[0]
+    controls = [f_in[i] for i in range(1, len(f_in))]
+
+    qc.h(f_in)
+    qc.x(f_in)
+    n_controlled_Z(qc, controls, target, aux)
+    qc.x(f_in)
+    qc.h(f_in)
+    return qc
+
+
+def build_grover_search_qc(n, n_iter, query, measure=False):
+    assert(len(query) == n)
+
+    f_in = QuantumRegister(n, name='fin')
+    c = ClassicalRegister(n, name='ans')
+
+    aux = None
+    qc = None
+    # len(controls) = n - 1
+    if n > 3:
+        aux = QuantumRegister(n - 3, name='aux')
+        qc = QuantumCircuit(f_in, aux, c, name='grover')
+    else:
+        qc = QuantumCircuit(f_in, c, name='grover')
+
+    # Preparing uniform superposition.
+    qc.h(f_in)
+
+    for i in range(n_iter):
+        qc = build_oracle(qc, f_in, aux, query)
+        qc = build_diffusion_operator(qc, f_in, aux)
+
+    ans = ClassicalRegister(n, name='ans')
+    if measure:
+        qc.measure(f_in, ans)
+
+    return qc
+
+
+def plot_statevector(statevector):
+    plt.figure()
+
+    x = np.arange(1, 1 + len(statevector))
+    states = list(map(lambda x: ''.join(map(str, x)), itertools.product([0, 1], repeat=int(np.log2(len(statevector))))))
+
+    plt.stem(x, statevector.real)
+    plt.xticks(x, states)
+    plt.title('Amplitude (real)')
+    plt.xlabel('States')
+    plt.ylabel('Amplitude')
+    plt.show()
