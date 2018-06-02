@@ -148,8 +148,8 @@ def build_diffusion_operator(qc, f_in, aux):
 def build_grover_search_qc(n, n_iter, query, measure=False):
     assert(len(query) == n)
 
-    f_in = QuantumRegister(n, name='fin')
-    c = ClassicalRegister(n, name='ans')
+    f_in = QuantumRegister(n, name='name')
+    c = ClassicalRegister(n, name='nameans')
 
     aux = None
     qc = None
@@ -163,11 +163,15 @@ def build_grover_search_qc(n, n_iter, query, measure=False):
     # Preparing uniform superposition.
     qc.h(f_in)
 
+    if n_iter == 0:
+        qc = build_oracle(qc, f_in, aux, query)
+
     for i in range(n_iter):
         qc = build_oracle(qc, f_in, aux, query)
+        # if i < 1:
         qc = build_diffusion_operator(qc, f_in, aux)
 
-    ans = ClassicalRegister(n, name='ans')
+    ans = ClassicalRegister(n, name='nameans')
     if measure:
         qc.measure(f_in, ans)
 
@@ -175,14 +179,15 @@ def build_grover_search_qc(n, n_iter, query, measure=False):
 
 
 def plot_statevector(statevector):
-    plt.figure()
+    plt.figure(figsize=(6, 4))
 
     x = np.arange(1, 1 + len(statevector))
     states = list(map(lambda x: ''.join(map(str, x)), itertools.product([0, 1], repeat=int(np.log2(len(statevector))))))
 
-    plt.stem(x, statevector.real)
+    plt.stem(x, statevector.real, 'dodgerblue', basefmt='C5-')
     plt.xticks(x, states)
-    plt.title('Amplitude (real)')
-    plt.xlabel('States')
-    plt.ylabel('Amplitude')
+    # plt.title('Amplitude (real)')
+    plt.title('Amplitude amplification', fontsize=15)
+    plt.xlabel('States', fontsize=15)
+    plt.ylabel('Amplitude (real)', fontsize=15)
     plt.show()
