@@ -9,7 +9,6 @@ def Z_lambda(weights):
     num_units = weights.shape[0] - 1
     all_states = utils.get_all_states(num_units)
     all_states = np.insert(all_states, 0, 1, axis=1)
-    # res = np.sum(np.array(list(map(lambda x: p_k(x, weights), all_states))))
     res = np.sum(list(map(lambda x: p_k(x, weights), all_states)))
     return res
 

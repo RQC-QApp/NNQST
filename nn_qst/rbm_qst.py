@@ -6,9 +6,10 @@ import paper_functions
 
 class RBM_QST:
 
-    def __init__(self, num_visible, num_hidden):
+    def __init__(self, num_visible, num_hidden, basis_states):
         self.num_hidden = num_hidden
         self.num_visible = num_visible
+        self.basis_states = np.insert(basis_states, 0, 1, axis=1)
         self.objectives = list()
 
         np_rng = np.random.RandomState(42)
@@ -70,7 +71,7 @@ class RBM_QST:
             ##################
             self.weights_lambda -= learning_rate * gradients
 
-    def _averaged_D_lambda_p_lambda(self, precise=False, num_samples=50, num_steps=10):
+    def _averaged_D_lambda_p_lambda(self, precise=False, num_samples=10, num_steps=10):
         """(A18) of arxive paper. (17) of Nature paper.
 
         """
@@ -88,8 +89,21 @@ class RBM_QST:
             res /= paper_functions.Z_lambda(self.weights_lambda)
 
         else:
-            sampled = np.array([self.daydream(num_steps)[-1] for _ in range(num_samples)]).copy()
-            sampled = np.insert(sampled, 0, 1, axis=1)
+            # sampled = np.array([self.daydream(num_steps)[-1] for _ in range(num_samples)]).copy()
+            # sampled = np.insert(sampled, 0, 1, axis=1)
+
+            probs = list()
+            for i in range(len(self.basis_states)):
+                tmp_data = self.basis_states[i]
+                tmp_prob = paper_functions.p_k(tmp_data, self.weights_lambda)
+                probs.append(tmp_prob)
+            probs = np.array(probs)
+            probs = probs / probs.sum()
+            print(probs)
+            # assert 1 == 0
+
+            sampled = self.basis_states[np.random.choice(self.basis_states.shape[0], size=num_samples, p=probs)]
+            print(sampled)
 
             res = np.array([paper_functions.D_k(x, self.weights_lambda) for x in sampled])
             res = np.sum(res, axis=0)  # Sum of gradients.
@@ -151,6 +165,29 @@ class RBM_QST:
 
         # Ignore the bias units (the first column), since they're always set to 1.
         return samples[:, 1:]
+
+    def run_visible(self, visible, states=False):
+        """Assuming the RBM has been trained (so that weights for the network have been learned),
+        run the network on a set of visible units, to get a sample of the hidden units.
+
+        Args:
+            visible (np.array): Vector of zeros and ones.
+
+        """
+        visible = np.insert(visible, 0, 1, axis=0)
+        # Calculate the activations of the hidden units.
+        hidden_activations = np.dot(visible, self.weights_lambda)
+        # Calculate the probabilities of turning the hidden units on.
+        hidden_probs = self._logistic(hidden_activations)
+
+        if states:
+            # Turn the hidden units on with their specified probabilities.
+            hidden_states = hidden_probs > np.random.rand(self.num_hidden + 1)
+            # Always fix the bias unit to 1.
+            hidden_states[0] = 1
+            return hidden_states
+        else:
+            return hidden_probs
 
     def _logistic(self, x):
         return 1.0 / (1 + np.exp(-x))
