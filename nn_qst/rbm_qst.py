@@ -32,7 +32,7 @@ class RBM_QST:
         self.weights_mu = np.insert(self.weights_mu, 0, 0, axis=0)
         self.weights_mu = np.insert(self.weights_mu, 0, 0, axis=1)
 
-    def train(self, data_raw, ideal_state, max_epochs=1000, learning_rate=0.1, debug=False, precise=False):
+    def train(self, data_raw, max_epochs=1000, learning_rate=0.1, debug=False, precise=False):
         """Train the machine.
 
         Args:
