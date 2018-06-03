@@ -4,6 +4,7 @@ import numpy as np
 import itertools
 
 import paper_functions
+import utils_phases
 
 
 def into_dict(dataset):
@@ -105,6 +106,33 @@ def fidelity_RBM(trained_RBM, ideal_state, num_samples=1000, num_steps=10):
     sampled_from_RBM = into_dict(sampled_from_RBM)
 
     return fidelity_dicts(ideal_state, sampled_from_RBM), sampled_from_RBM
+
+
+def generate_phases_dataset(quantum_system, amplitudes, phases, num_units, num_samples):
+    phases_dataset = dict()
+
+    # Measurements in ZZZ... basis.
+    operations = utils_phases.U_ZZ(num_units)
+    # Resulting states and coefficients.
+    res = utils_phases.system_evolution(quantum_system, operations, amplitudes, phases)
+    hist = utils_phases.dict_to_hist(res)  # States and corresponding probabilities.
+    phases_dataset[operations] = utils_phases.sample_from_hist(hist, num_samples)
+
+    for j in range(num_units - 1):
+        operations = utils_phases.U_XX(j, num_units)
+        # Resulting states and coefficients.
+        res = utils_phases.system_evolution(quantum_system, operations, amplitudes, phases)
+        hist = utils_phases.dict_to_hist(res)  # States and corresponding probabilities.
+        phases_dataset[operations] = utils_phases.sample_from_hist(hist, num_samples)
+
+    for j in range(num_units - 1):
+        operations = utils_phases.U_XY(j, num_units)
+        # Resulting states and coefficients.
+        res = utils_phases.system_evolution(quantum_system, operations, amplitudes, phases)
+        hist = utils_phases.dict_to_hist(res)  # States and corresponding probabilities.
+        phases_dataset[operations] = utils_phases.sample_from_hist(hist, num_samples)
+
+    return phases_dataset
 
 
 def dataset_w(n_vis, n_samples, hist=False):

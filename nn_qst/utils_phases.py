@@ -142,6 +142,10 @@ def U_XY(j, n):
     return 'I' * j + "HK" + 'I' * (n - j - 2)
 
 
+def U_ZZ(n):
+    return 'I' * n
+
+
 def sample_from_hist(histogram, size=100):
     states = histogram[:, 0]
     probs = histogram[:, 1].astype(float)
