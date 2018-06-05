@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 from collections import Counter
+import paper_functions
 import numpy as np
 import itertools
-
-import paper_functions
-import utils_phases
+import math
 
 
 def into_dict(dataset):
@@ -28,6 +27,248 @@ def into_dict(dataset):
         dataset[state] = np.sqrt(dataset[state] / num_samples)
 
     return dataset
+
+
+def evolution(state, operations, coefficient=1, verbose=False):
+    """Applies the sequence of `operations` to given `state`.
+
+    Args:
+        state (tuple): State.
+        operations (str): String consisting of 'I', 'H' and 'K'.
+        coefficient (complex, optional): Coefficient by given state. Defaults to 1.
+        verbose (bool, optional): Printing log info. Defaults to False.
+
+    Returns:
+        Dict of states and corresponding coefficients.
+
+    """
+    def apply_k(value: int):
+        assert value in [0, 1]
+
+        res = dict()
+        if value == 0:
+            res[0] = 1 / np.sqrt(2)
+            res[1] = 1 / np.sqrt(2)
+        elif value == 1:
+            res[0] = -1j / np.sqrt(2)
+            res[1] = 1j / np.sqrt(2)
+        return res
+
+    def apply_h(value: int):
+        assert value in [0, 1]
+
+        res = dict()
+        if value == 0:
+            res[0] = 1 / np.sqrt(2)
+            res[1] = 1 / np.sqrt(2)
+        elif value == 1:
+            res[0] = 1 / np.sqrt(2)
+            res[1] = -1 / np.sqrt(2)
+        return res
+
+    all_states = dict()
+    all_states[state] = coefficient
+
+    h_indices = [x[0] for x in enumerate(operations) if x[1] == 'H']
+    k_indices = [x[0] for x in enumerate(operations) if x[1] == 'K']
+
+    for indices, apply, letter in [(h_indices, apply_h, 'H'), (k_indices, apply_k, 'K')]:
+        for i in indices:
+            # It's necessary to save keys before iterating over dict.
+            all_states_copy = all_states.copy()
+            for s in all_states_copy:
+                # Apply operation to i'th qubit.
+                applied = apply(s[i])
+                for v in applied:
+                    tmp = s[:i] + (v,) + s[i + 1:]
+                    if tmp in all_states:
+                        all_states[tmp] *= applied[v]
+                    else:
+                        all_states[tmp] = all_states_copy[s] * applied[v]
+            if verbose:
+                print(letter, i)
+                print(all_states)
+
+    if verbose:
+        print("=======")
+        print("Result:")
+        print(all_states)
+
+    return all_states
+
+
+def merge_dicts(dict1, dict2):
+    """Sums up two dicts into the new one.
+
+    """
+    tmp = {k: dict1.get(k, 0) + dict2.get(k, 0) for k in set(dict1) | set(dict2)}
+    res = {k: tmp[k] for k in tmp if abs(tmp[k]) > 0.0}
+    return res
+
+
+def dict_to_quantum_system(quantum_dict):
+    """Converts dict of states and corresponding coefficients into three
+    lists -- of states, of amplitudes and of phases.
+
+    Args:
+        quantum_dict (dict): States and corresponding probabilities.
+
+    Returns:
+        Tuple of three lists -- `quantum_system`, `amplitudes`, `phases`.
+
+    """
+    phases = list()
+    amplitudes = list()
+    quantum_system = list()
+
+    for key in quantum_dict:
+        r_theta = polar(quantum_dict[key])
+        quantum_system.append(key)
+        amplitudes.append(r_theta[0])
+        phases.append(r_theta[1])
+
+    return quantum_system, amplitudes, phases
+
+
+def dict_to_hist(quantum_dict):
+    """Converts dict of states into histogram -- list of tuples of states and corresponding probabilities.
+
+    Args:
+        quantum_dict (dict): Dict of states and corresponding coefficients.
+
+    Returns:
+        np.array of tuples (state, probability).
+
+    """
+    res = list()
+    for state in quantum_dict:
+        tmp = (state, abs(quantum_dict[state]) ** 2)  # State and corresponding probability.
+        res.append(tmp)
+    return np.array(res)
+
+
+def system_evolution(quantum_system, operations, amplitudes, phases):
+    """Performs an evolution/rotation for `quantum_system` using the
+    sequence of `operations`.
+
+    Args:
+        quantum_system (list): List of states.
+        operations (str): Sequence of operations.
+        amplitudes (list): List of floats.
+        phases (list): List of floats.
+
+    Returns:
+        Dict of {states: coefficients}.
+
+    """
+    assert len(operations) == len(quantum_system[0]), "Lengths must be the same."
+
+    total = dict()
+    for i in range(len(quantum_system)):
+        # Pass state, operations and coefficient == a * exp(i * b).
+        state = tuple(quantum_system[i])
+        tmp = evolution(state, operations,
+                        amplitudes[i] * np.exp(1j * phases[i]))
+        total = merge_dicts(total, tmp)
+
+    return total
+
+
+def random_phases(size):
+    """Generate a list of random phases.
+
+    Args:
+        size (int): Length of list.
+
+    Returns:
+        List of random phases.
+
+    """
+    return 2 * np.pi * np.random.random(size)
+
+
+def polar(z):
+    """Convert complex number to polar representation.
+
+    Args:
+        z (complex): Number to convert.
+
+    Returns:
+        Tuple of float for `r` and float for angle `theta`.
+
+    """
+    a = z.real
+    b = z.imag
+    r = math.hypot(a, b)
+    theta = math.atan2(b, a)
+    if theta < 0:
+        theta += 2 * np.pi
+    return r, theta
+
+
+def U_XX(j, n):
+    """Makes a sequence of operations for XX basis.
+
+    Args:
+        j (int): Position of 'HH'.
+        n (int): Length of the sequence.
+
+    Returns:
+        str: Sequence of operations.
+
+    """
+    assert j < n - 1
+    assert n > 2
+    return 'I' * j + "HH" + 'I' * (n - j - 2)
+
+
+def U_XY(j, n):
+    """Makes a sequence of operations for XY basis.
+
+    Args:
+        j (int): Position of 'HK'.
+        n (int): Length of the sequence.
+
+    Returns:
+        str: Sequence of operations.
+
+    """
+    assert j < n - 1
+    assert n > 2
+    return 'I' * j + "HK" + 'I' * (n - j - 2)
+
+
+def U_ZZ(n):
+    """Makes a sequence of operations for ZZ basis.
+
+    Args:
+        n (int): Length of the sequence.
+
+    Returns:
+        str: Sequence of operations.
+
+    """
+    return 'I' * n
+
+
+def sample_from_hist(histogram, size=100):
+    """Sample dataset using `histogram`-data.
+
+    Args:
+        histogram (np.array): Histogram of states -- `states` and corresponding `probabilities`.
+        size (int, optional): Number of samples. Defaults to 100.
+
+    Returns:
+        np.array: Array of sampled states.
+
+    """
+    states = histogram[:, 0]
+    probs = histogram[:, 1].astype(float)
+    # Sample tuples from `states` with corresponding probabilities `probs`.
+    sampled = np.random.choice(states, size=size, p=probs)
+    # Make `sampled` a list of lists with 0.0 and 1.0 values.
+    sampled = np.array(list(map(list, sampled))).astype(float)
+    return sampled
 
 
 def dataset_to_hist(dataset):
@@ -70,9 +311,11 @@ def normalize(vector):
 def plot_histogram(data, number_to_keep=False):
     """Plot a histogram of data.
 
-    data is a dictionary of  {'000': 5, '010': 113, ...}
-    number_to_keep is the number of terms to plot and rest is made into a
-    single bar called other values
+    Args:
+        data (dict): A dictionary of  {'000': 5, '010': 113, ...}.
+        number_to_keep (int, optional): The number of terms to plot and rest is made into a
+            single bar called other values. Defaults to False.
+
     """
     if number_to_keep is not False:
         data_temp = dict(Counter(data).most_common(number_to_keep))
@@ -112,25 +355,25 @@ def generate_phases_dataset(quantum_system, amplitudes, phases, num_units, num_s
     phases_dataset = dict()
 
     # Measurements in ZZZ... basis.
-    operations = utils_phases.U_ZZ(num_units)
+    operations = U_ZZ(num_units)
     # Resulting states and coefficients.
-    res = utils_phases.system_evolution(quantum_system, operations, amplitudes, phases)
-    hist = utils_phases.dict_to_hist(res)  # States and corresponding probabilities.
-    phases_dataset[operations] = utils_phases.sample_from_hist(hist, num_samples)
+    res = system_evolution(quantum_system, operations, amplitudes, phases)
+    hist = dict_to_hist(res)  # States and corresponding probabilities.
+    phases_dataset[operations] = sample_from_hist(hist, num_samples)
 
     for j in range(num_units - 1):
-        operations = utils_phases.U_XX(j, num_units)
+        operations = U_XX(j, num_units)
         # Resulting states and coefficients.
-        res = utils_phases.system_evolution(quantum_system, operations, amplitudes, phases)
-        hist = utils_phases.dict_to_hist(res)  # States and corresponding probabilities.
-        phases_dataset[operations] = utils_phases.sample_from_hist(hist, num_samples)
+        res = system_evolution(quantum_system, operations, amplitudes, phases)
+        hist = dict_to_hist(res)  # States and corresponding probabilities.
+        phases_dataset[operations] = sample_from_hist(hist, num_samples)
 
     for j in range(num_units - 1):
-        operations = utils_phases.U_XY(j, num_units)
+        operations = U_XY(j, num_units)
         # Resulting states and coefficients.
-        res = utils_phases.system_evolution(quantum_system, operations, amplitudes, phases)
-        hist = utils_phases.dict_to_hist(res)  # States and corresponding probabilities.
-        phases_dataset[operations] = utils_phases.sample_from_hist(hist, num_samples)
+        res = system_evolution(quantum_system, operations, amplitudes, phases)
+        hist = dict_to_hist(res)  # States and corresponding probabilities.
+        phases_dataset[operations] = sample_from_hist(hist, num_samples)
 
     return phases_dataset
 

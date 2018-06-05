@@ -55,9 +55,6 @@ def boltzmann_margin_distribution(sigma, weights):
 def p_k(sigma, weights):
     """(A3) of arxive paper.
 
-    Args:
-        k (str): either "lambda" or "mu".
-
     """
     return boltzmann_margin_distribution(sigma, weights)
 
@@ -86,7 +83,6 @@ def D_k(sigma, weights):
         sigma (np.array): input.
 
     """
-
     sigma[0] = 1
     tmp = np.dot(sigma, weights)
     tmp = tmp[1:]  # Ignore bias unit.
@@ -105,19 +101,29 @@ def D_k(sigma, weights):
     return res
 
 
-def Q_b(sigma, weights_lambda, weights_mu, u=None):
+# TODO: Probably it's better to do everything with phases before calling this function.
+# So we don't need a `case` variable at all.
+def Q_b(sigma, weights_lambda, weights_mu, case="ampl"):
     """(A13) of arxive paper. (12) of Nature paper.
 
     Args:
-        u (?type?): basis transformation matrix.
+        case (str): "ampl" or "phase"
 
     """
+    if case == "ampl":
+        tmp = np.exp(1j * phi_k(sigma, weights_mu) / 2)
+        tmp *= np.sqrt(p_k(sigma, weights_lambda))
 
-    tmp = np.exp(1j * phi_k(sigma, weights_mu) / 2)
-    tmp *= np.sqrt(p_k(sigma, weights_lambda))
+    elif case == "phase":
+        raise ValueError("Not implemeted!")
 
-    if u:
-        tmp = u * tmp
+        # coeff, sigma = u(sigma)
+        # tmp = np.exp(1j * phi_k(sigma, weights_mu) / 2)
+        # tmp *= np.sqrt(p_k(sigma, weights_lambda))
+        # tmp *= coeff
+
+    else:
+        raise ValueError("Wrong case")
 
     return tmp
 
