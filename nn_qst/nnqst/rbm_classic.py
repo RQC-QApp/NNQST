@@ -1,6 +1,7 @@
 import numpy as np
-import utils
-import paper_functions
+
+from . import utils
+from . import paper_functions
 
 
 class RBM:

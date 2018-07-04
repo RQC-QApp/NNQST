@@ -1,12 +1,30 @@
 import numpy as np
 
-import utils
-import paper_functions
+from . import paper_functions
 
 
+# NOTE: Calculation of Objective function is disabled
 class RBM_QST:
-    '''NOTE: Calculation of Objective function is disabled'''
+    """Class for RBM to perform Quantum State Tomography.
+
+    Methods:
+        * __init__(self, quantum_system, num_visible, num_hidden)
+        * train_amplitudes(self, dataset, max_epochs=1000, learning_rate=0.1, debug=False, precise=True)
+        * train_phases(self, dataset, basis_set, max_epochs=1000, learning_rate=0.1, debug=False, precise=False)
+        * daydream(self, num_samples, debug=False)
+        * run_visible(self, visible, states=False)
+        * _logistic(self, x)
+
+    """
     def __init__(self, quantum_system, num_visible, num_hidden):
+        """Short summary.
+
+        Args:
+            quantum_system (list): Description of parameter `quantum_system`.
+            num_visible (int): Number of visible units.
+            num_hidden (int): Number of hidden units.
+
+        """
         self.num_hidden = num_hidden
         self.num_visible = num_visible
         self.objectives = list()
@@ -43,7 +61,10 @@ class RBM_QST:
         # Converting dataset to a histogram representation.
         Nqub = self.num_visible
         dataset_Z = dataset['I' * Nqub]
-        occurs, sigmas = np.array(list(dataset_Z.values())), np.array(list(dataset_Z.keys()))
+
+        # TODO: `occurs`-variable is unused.
+        # occurs, sigmas = np.array(list(dataset_Z.values())), np.array(list(dataset_Z.keys()))
+        sigmas = np.array(list(dataset_Z.keys()))
 
         # Insert bias units of 1 into the first column.
         sigmas = np.insert(sigmas, 0, 1, axis=1)
@@ -75,7 +96,6 @@ class RBM_QST:
             operations (str): List of strings of `operations`.
 
         """
-
         for epoch in range(max_epochs):
             # Converting dataset to a histogram representation.
             #
@@ -83,7 +103,6 @@ class RBM_QST:
             # into different basis and then pass such `training_set` to `utils.dataset_to_hist()`.
             # Also, we need an array of coefficients (both amplitudes and phases) of every state.
             #
-
             # Calculating of gradients.
             # All the operations of rotations were carried out here
             # and just `occurs` and `data_hist` are passed to (15) of Nature paper.
@@ -96,11 +115,8 @@ class RBM_QST:
                                                                       self.weights_mu,
                                                                       dataset,
                                                                       basis_set))
-                #print(" weights_mu = ", self.weights_mu)
                 print("Epoch %s: objective is %s" % (epoch, self.objectives[-1]))
 
-
-    # TODO: It seems that we need another function to sample phases from this RBM.
     def daydream(self, num_samples, debug=False):
         """Randomly initialize the visible units once, and start running alternating Gibbs sampling steps
         (where each step consists of updating all the hidden units, and then updating all of the visible units),
@@ -168,4 +184,4 @@ class RBM_QST:
 
 
 if __name__ == '__main__':
-    raise RuntimeError('not a main file')
+    raise RuntimeError('Not a main file')
