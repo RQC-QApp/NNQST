@@ -13,15 +13,36 @@ def Z_lambda(weights):
     return res
 
 
-def objective_func(weights_lambda, weights_mu, dataset):
+def objective_func(quantum_system, weights_lambda, weights_mu, dataset, basis_set):
     res = 0
-
+    Nqub = weights_lambda.shape[0] - 1
+    Nb = len(basis_set)
     stat_sum = Z_lambda(weights_lambda)
-    res = np.sum(list(map(lambda x: np.log(psi_lambda_mu(x, stat_sum, weights_lambda, weights_mu) ** 2), dataset)))
 
-    res /= len(dataset)
-    res *= -1
+    amplitudes, phases = {}, {}
+    all_states = utils.get_all_states(Nqub)
+    all_states = np.insert(all_states, 0, 1, axis=1)
 
+    for sigma in all_states:
+        amplitudes[tuple(sigma[1:])] = np.sqrt(p_k(sigma, weights_lambda) / stat_sum)
+        phases[tuple(sigma[1:])] = phi_k(sigma, weights_mu) / 2
+
+    for basis in basis_set:
+        dataset_b = dataset[basis]
+        sigmas = list(dataset_b.keys())
+
+        tmp = 0.
+        rot_state = utils.system_evolution(quantum_system, basis, amplitudes, phases)
+        occurs = list(dataset_b.values())  # vector of occurencies
+
+        for state in rot_state.keys():
+            psi_i = rot_state[state]
+            n_occurs = dataset_b[state]
+            tmp += n_occurs * np.log(abs(psi_i)**2)
+
+        tmp /= np.sum(occurs)
+        res += tmp
+    res *= -1./Nb
     return res
 
 
@@ -72,7 +93,7 @@ def psi_lambda_mu(sigma, Z_lambda, weights_lambda, weights_mu):
     """
     tmp = 1j * phi_k(sigma, weights_mu) / 2
     tmp = np.exp(tmp)
-    tmp = np.sqrt(p_k(sigma, weights_lambda) / Z_lambda)
+    tmp *= np.sqrt(p_k(sigma, weights_lambda) / Z_lambda)
     return tmp
 
 
@@ -101,51 +122,205 @@ def D_k(sigma, weights):
     return res
 
 
-# TODO: Probably it's better to do everything with phases before calling this function.
-# So we don't need a `case` variable at all.
-def Q_b(sigma, weights_lambda, weights_mu, case="ampl"):
-    """(A13) of arxive paper. (12) of Nature paper.
-
-    Args:
-        case (str): "ampl" or "phase"
+def averaged_D_lambda_Q_b(dataset, weights_lambda, weights_mu):
+    """(A16) of arxive paper. (15) of Nature paper.
 
     """
-    if case == "ampl":
-        tmp = np.exp(1j * phi_k(sigma, weights_mu) / 2)
-        tmp *= np.sqrt(p_k(sigma, weights_lambda))
+    ''' Measurements onl;y in Z basis !!! '''
 
-    elif case == "phase":
-        raise ValueError("Not implemeted!")
+    Nqub = weights_lambda.shape[0] - 1
 
-        # coeff, sigma = u(sigma)
-        # tmp = np.exp(1j * phi_k(sigma, weights_mu) / 2)
-        # tmp *= np.sqrt(p_k(sigma, weights_lambda))
-        # tmp *= coeff
+    dataset_Z = dataset['I' * Nqub]  # Selecting only Z - basis measurements
+    sigmas = np.array(list(dataset_Z.keys()))  # vector of sigmas
+    sigmas = np.insert(sigmas, 0, 1, axis=1)
+    occurs = np.array(list(dataset_Z.values()))  # vector of occurrences for each sigma
 
-    else:
-        raise ValueError("Wrong case")
+    tmp2 = np.zeros((len(sigmas), weights_lambda.shape[0], weights_lambda.shape[1]))
+    for i in range(len(sigmas)):
+        sigma = sigmas[i, :]
+        n_occur = dataset_Z[tuple(sigma[1:])]
+        tmp2[i, :, :] = n_occur * D_k(sigma, weights_lambda)
+    tmp2 = np.sum(tmp2, axis=0)
+    tmp2 /= np.sum(occurs)
+    return tmp2
 
-    return tmp
+def averaged_D_lambda_p_lambda_PRECISE(dataset, weights_lambda):
+    """(A18) of arxive paper. (17) of Nature paper.
 
+    """
+    Nqub = weights_lambda.shape[0] - 1
+    all_states = utils.get_all_states(Nqub)
+    all_states = np.insert(all_states, 0, 1, axis=1)
 
-def grad_lambda_ksi_MANUAL(occurs, dataset_hist, weights_lambda, weights_mu):
+    stat_sum = Z_lambda(weights_lambda)
+
+    # Sum of gradients.
+    tmp1 = np.sum(list(map(lambda x: p_k(x, weights_lambda) * D_k(x, weights_lambda), all_states)), axis=0)
+    tmp1 /= stat_sum
+
+    return tmp1
+
+def grad_lambda_ksi(dataset, weights_lambda, weights_mu, precise = True):
     """(A14) of arxive paper. (13) of Nature paper.
 
     """
-    num_units = weights_lambda.shape[0] - 1
-    all_states = utils.get_all_states(num_units)
+    '''
+        Gradient for amplitudes reconstruction.
+        Note that in this version we perform measurements only in Z-basis.
+    '''
+    N_b = 1
+
+    # PRECISE method with exact evaluation of partition function Z
+    if precise:
+        tmp1 = N_b * averaged_D_lambda_p_lambda_PRECISE(dataset, weights_lambda)
+    else:
+        raise ValueError('This case is not implemented yet')
+
+    # Since we have only one basis we calculate just one component.
+    tmp2 = averaged_D_lambda_Q_b(dataset, weights_lambda, weights_mu)
+    tmp2 = tmp2.real
+
+    return tmp1 - tmp2
+
+def averaged_D_mu_Q_b(sigma_b, weights_lambda, weights_mu, basis):
+    """(A16) of arxive paper. (15) of Nature paper.
+        Args:
+            sigma_b (np.array): spin configuration, an array of {1,0}, len = N+1
+            weights_lambda (np.array): weights for amplitudes RBM, shape = (N+1, M+1)
+            weights_mu (np.array): weights for phases RBM, shape = (N+1, M+1)
+            basis (string): a string of basis transforms for each qubit, len = N
+                            example: 'IIHKII'
+                            I - identity
+                            H - rotation in X basis
+                            K - rotation in Y basis
+    """
+    Nqub = weights_lambda.shape[0] - 1
+
+    all_states = utils.get_all_states(Nqub)
     all_states = np.insert(all_states, 0, 1, axis=1)
 
-    tmp1 = np.sum(list(map(lambda x: p_k(x, weights_lambda) * D_k(x, weights_lambda), all_states)), axis=0)
-    tmp1 /= np.sum(list(map(lambda x: p_k(x, weights_lambda), all_states)))
+    amplitudes, phases = {}, {}
+    Dk_amplitudes, Dk_phases = {}, {}
 
-    tmp2 = np.zeros((len(dataset_hist), weights_lambda.shape[0], weights_lambda.shape[1]))
-    for i in range(len(dataset_hist)):
-        tmp2[i, :, :] = occurs[i] * D_k(dataset_hist[i, :], weights_lambda)
-    tmp2 = np.sum(tmp2, axis=0)
+    q_state = {}
 
-    res = tmp1 - tmp2 / np.sum(occurs)
+    ## Realizing formula B17 from Appendix, arxiv version
+
+    sigma1, sigma0 = sigma_b.copy(), sigma_b.copy()
+
+    # Check that the basis is of the kind 'II..H..II' or 'II..K..II'
+    #assert basis.count('H')==1 or basis.count('K')==1, "Only one H or K is allowed"
+
+    if basis.find('H')!=-1:
+        symb = 'H'
+        delta_symb = 1  #coefficient due to H matrix
+    elif basis.find('K')!=-1:
+        symb = 'K'
+        delta_symb = -1j #coefficient due to K matrix
+
+    indx_b = basis.find(symb) + 1 # shift by 1 because of the fictious 0th sigma unit
+
+
+    sigma1[indx_b] = 1
+    sigma0[indx_b] = 0
+
+    prob1 = p_k(sigma1, weights_lambda)
+    prob0 = p_k(sigma0, weights_lambda)
+    phi1 = phi_k(sigma1, weights_mu )
+    phi0 = phi_k(sigma0, weights_mu )
+
+    xi_lambda_mu = np.sqrt( prob1/prob0 ) * np.exp( 1j * (phi1 - phi0)/2. ) # Eq. B18
+
+    numerator = D_k(sigma0, weights_lambda) + D_k(sigma1, weights_lambda) * xi_lambda_mu * ( 1.-2*sigma_b[indx_b] ) * delta_symb
+
+    denominator = 1. + xi_lambda_mu * ( 1.-2*sigma_b[indx_b] ) * delta_symb
+
+    aver_D_mu_Qb = numerator/denominator
+
+    return aver_D_mu_Qb
+
+
+def grad_mu_ksi(dataset, basis_set, weights_lambda, weights_mu):
+    """(A14) of arxive paper. (13) of Nature paper.
+
+    """
+    '''
+        Gradient for phases reconstruction.
+    '''
+    Nqub = weights_lambda.shape[0] - 1
+    Nb = len(dataset.keys())
+
+    tmp, res = 0, 0
+    for basis in basis_set:
+        sigmas = list(dataset[basis].keys())
+        sigmas = np.array(sigmas)
+        sigmas = np.insert(sigmas, 0, 1, axis=1)
+        occurs = list(dataset[basis].values())
+
+        for sigma in sigmas:
+            n_occurs = dataset[basis][tuple(sigma[1:])]
+            tmp += n_occurs * averaged_D_mu_Q_b(sigma, weights_lambda, weights_mu, basis)
+        res += tmp.imag / (np.sum(occurs) * Nb)
+
     return res
+
+
+
+#def get_phases(weights_mu):
+
+
+# TODO: Probably it's better to do everything with phases before calling this function.
+# So we don't need a `case` variable at all.
+#def Q_b(sigma, weights_lambda, weights_mu, basis=None, case="ampl"):
+    #"""(A13) of arxive paper. (12) of Nature paper.
+
+    #Args:
+        #case (str): "ampl" or "phase"
+
+    #"""
+    #if case == "ampl":
+        #tmp = np.exp(1j * phi_k(sigma, weights_mu) / 2)
+        #tmp *= np.sqrt(p_k(sigma, weights_lambda))
+
+    #elif case == "phase":
+        #if basis==None:
+            #raise ValueError("Basis is not specified!")
+        ##''' Convention for the basis = "...IHH..." '''
+
+        ##quantum_system = np.eye(len(sigma))
+        ##amplitudes, phases = {}, {}
+        ##amplitudes[str(sigma)] = np.sqrt(p_k(sigma, weights_lambda))
+        ##phases[str(sigma)] = phi_k(sigma, weights_mu) / 2
+
+        ##rot_state = utils.system_evolution(quantum_system, basis, amplitudes, phases)
+        ##tmp = rot_state[str(sigma)]
+
+    #else:
+        #raise ValueError("Wrong case")
+
+    #return tmp
+
+
+#def grad_lambda_ksi_MANUAL(occurs, dataset_hist, weights_lambda, weights_mu):
+    #"""(A14) of arxive paper. (13) of Nature paper.
+
+    #"""
+    #num_units = weights_lambda.shape[0] - 1
+    #all_states = utils.get_all_states(num_units)
+    #all_states = np.insert(all_states, 0, 1, axis=1)
+
+    #tmp1 = np.sum(list(map(lambda x: p_k(x, weights_lambda) * D_k(x, weights_lambda), all_states)), axis=0)
+    #tmp1 /= np.sum(list(map(lambda x: p_k(x, weights_lambda), all_states)))
+
+    #tmp2 = np.zeros((len(dataset_hist), weights_lambda.shape[0], weights_lambda.shape[1]))
+    #for i in range(len(dataset_hist)):
+        #tmp2[i, :, :] = occurs[i] * D_k(dataset_hist[i, :], weights_lambda)
+    #tmp2 = np.sum(tmp2, axis=0)
+
+    #res = tmp1 - tmp2 / np.sum(occurs)
+    #return res
+
+
 
 
 # def grad_lambda_ksi(dataset, weights_lambda, weights_mu, precise=False):
@@ -166,32 +341,23 @@ def grad_lambda_ksi_MANUAL(occurs, dataset_hist, weights_lambda, weights_mu):
 #
 #     return tmp1 - tmp2
 
-
-# def averaged_D_lambda_p_lambda_PRECISE(batch, weights):
-#     """(A18) of arxive paper. (17) of Nature paper.
+# def grad_lambda_ksi(dataset, weights_lambda, weights_mu, precise=False):
+#     """(A14) of arxive paper. (13) of Nature paper.
 #
 #     """
-#     stat_sum = Z_lambda(weights)
+#     N_b = 1  # TODO: In this version we have only one basis, but in general: N_b = len(datasets).
 #
-#     # Sum of gradients.
-#     res = np.array(list(map(lambda x: p_k(x, weights) * D_k(x, weights), batch)))
-#     res = np.sum(res, axis=0)
-#     res /= stat_sum
+#     tmp1 = None
+#     if precise:
+#         tmp1 = N_b * averaged_D_lambda_p_lambda_PRECISE(dataset, weights_lambda)
+#     else:
+#         tmp1 = N_b * averaged_D_lambda_p_lambda(dataset, weights_lambda)
 #
-#     return res
-
-
-# def averaged_D_lambda_Q_b(batch, weights_lambda, weights_mu):
-#     """(A16) of arxive paper. (15) of Nature paper.
+#     # Due to we have only one basis we calculate just one component.
+#     tmp2 = averaged_D_lambda_Q_b(dataset, weights_lambda, weights_mu)
+#     tmp2 = tmp2.real / len(dataset)
 #
-#     """
-#     # TODO: How to pass basis transformation matrices here?
-#     quasi_probs = np.sum(list(map(lambda x: Q_b(x, weights_lambda, weights_mu), batch)))  # Sum of quasi probs (complex numbers).
-#
-#     res = np.sum(list(map(lambda x: D_k(x, weights_lambda) * Q_b(x, weights_lambda, weights_mu), batch)), axis=0)  # quasi_prob * gradients.
-#     res /= quasi_probs
-#
-#     return res
+#     return tmp1 - tmp2
 
 
 # def averaged_D_lambda_p_lambda(batch, weights):

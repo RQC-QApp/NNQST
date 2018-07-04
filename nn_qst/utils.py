@@ -141,6 +141,7 @@ def dict_to_hist(quantum_dict):
 
     """
     res = list()
+    print('qdict=',quantum_dict)
     for state in quantum_dict:
         tmp = (state, abs(quantum_dict[state]) ** 2)  # State and corresponding probability.
         res.append(tmp)
@@ -161,16 +162,16 @@ def system_evolution(quantum_system, operations, amplitudes, phases):
         Dict of {states: coefficients}.
 
     """
-    assert len(operations) == len(quantum_system[0]), "Lengths must be the same."
+    #assert len(operations) == len(quantum_system[0]), "Lengths must be the same."
 
-    total = dict()
+    total = {}
+
     for i in range(len(quantum_system)):
         # Pass state, operations and coefficient == a * exp(i * b).
-        state = tuple(quantum_system[i])
+        state = tuple([int(a) for a in quantum_system[i]])
         tmp = evolution(state, operations,
-                        amplitudes[i] * np.exp(1j * phases[i]))
+                        amplitudes[state] * np.exp(1j * phases[state] ))
         total = merge_dicts(total, tmp)
-
     return total
 
 
@@ -295,13 +296,13 @@ def fidelity_dicts(dict1, dict2):
     res = 0
     for state in dict1:
         if state in dict2:
-            res += dict1[state] * dict2[state]
-    res = res ** 2
+            res += np.conj(dict1[state]) * dict2[state]
+    res = np.abs(res) ** 2
     return res
 
 
 def fidelity(state1, state2):
-    return state1.dot(state2) ** 2
+    return abs(state1.dot(np.conj(state2))) ** 2
 
 
 def normalize(vector):
@@ -350,33 +351,23 @@ def fidelity_RBM(trained_RBM, ideal_state, num_samples=1000, num_steps=10):
 
     return fidelity_dicts(ideal_state, sampled_from_RBM), sampled_from_RBM
 
+def psi_RBM(trained_RBM):
+    psi_RBM = {}
+    Nqub = trained_RBM.num_visible
+    all_states = get_all_states(Nqub)
+    all_states = np.insert(all_states, 0, 1, axis=1)
 
-def generate_phases_dataset(quantum_system, amplitudes, phases, num_units, num_samples):
-    phases_dataset = dict()
+    stat_sum = paper_functions.Z_lambda(trained_RBM.weights_lambda)
+    for sigma in all_states:
+        prob_k = paper_functions.p_k(sigma, trained_RBM.weights_lambda)
+        phase_k = paper_functions.phi_k(sigma, trained_RBM.weights_mu)
 
-    # Measurements in ZZZ... basis.
-    operations = U_ZZ(num_units)
-    # Resulting states and coefficients.
-    res = system_evolution(quantum_system, operations, amplitudes, phases)
-    hist = dict_to_hist(res)  # States and corresponding probabilities.
-    phases_dataset[operations] = sample_from_hist(hist, num_samples)
+        psi_RBM[tuple(sigma[1:])] = np.sqrt(prob_k / stat_sum) * np.exp(1j * phase_k / 2.)
+    return psi_RBM
 
-    for j in range(num_units - 1):
-        operations = U_XX(j, num_units)
-        # Resulting states and coefficients.
-        res = system_evolution(quantum_system, operations, amplitudes, phases)
-        hist = dict_to_hist(res)  # States and corresponding probabilities.
-        phases_dataset[operations] = sample_from_hist(hist, num_samples)
-
-    for j in range(num_units - 1):
-        operations = U_XY(j, num_units)
-        # Resulting states and coefficients.
-        res = system_evolution(quantum_system, operations, amplitudes, phases)
-        hist = dict_to_hist(res)  # States and corresponding probabilities.
-        phases_dataset[operations] = sample_from_hist(hist, num_samples)
-
-    return phases_dataset
-
+def fidelity_RBM_PRECISE(trained_RBM, ideal_state):
+    psi_rbm = psi_RBM(trained_RBM)
+    return fidelity_dicts(ideal_state, psi_rbm)
 
 def dataset_w(n_vis, n_samples, hist=False):
     sparsed_states = np.eye(n_vis)
@@ -389,6 +380,8 @@ def dataset_w(n_vis, n_samples, hist=False):
     if hist:
         plt.hist(random_indices, bins=n_vis)
         plt.show()
+
+
     return dataset
 
 
@@ -400,3 +393,36 @@ def ideal_w(n_vis):
 def get_all_states(n):
     all_states = np.array(list(map(np.array, itertools.product([0, 1], repeat=n))))
     return all_states
+
+def generate_Isinglike_basis_set(n_qub):
+    basis_set = []
+
+    for symb in ['H', 'K']:
+        for k in range(n_qub):
+            basis = 'I'*(k)+symb+'I'*(n_qub-k-1)
+            basis_set.append(basis)
+
+    return basis_set
+
+
+def generate_dataset(quantum_system, basis_set, amplitudes, phases, num_units, num_samples):
+    Isinglike_dataset = dict()
+    # Measurements in ZZZ... basis.
+    # Resulting states and coefficients.
+
+    for basis in basis_set:
+        # Resulting states and coefficients.
+        res = system_evolution(quantum_system, basis, amplitudes, phases)
+        hist = dict_to_hist(res)  # States and corresponding probabilities.
+        Isinglike_dataset[basis] = sample_from_hist(hist, num_samples)
+
+    # Converting dataset to histogram representation
+    for op in Isinglike_dataset.keys():
+        sigmas = Isinglike_dataset[op]
+        occurs, sigmas = dataset_to_hist(sigmas)
+        Isinglike_dataset[op] = {}
+        for i in range(len(sigmas)):
+            sigma = sigmas[i, :]
+            Isinglike_dataset[op][tuple(sigma)] = occurs[i]
+
+    return Isinglike_dataset
