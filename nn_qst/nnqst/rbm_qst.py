@@ -106,8 +106,15 @@ class RBM_QST:
             # Calculating of gradients.
             # All the operations of rotations were carried out here
             # and just `occurs` and `data_hist` are passed to (15) of Nature paper.
-            gradients = paper_functions.grad_mu_ksi(dataset, basis_set, self.weights_lambda, self.weights_mu)
-            self.weights_mu -= learning_rate * gradients
+
+            # Old update rule without S_ij Fisher Information matrix
+            # gradients = paper_functions.grad_mu_ksi(dataset, basis_set, self.weights_lambda, self.weights_mu)
+            # self.weights_mu -= learning_rate * gradients
+            # New update rule with S_ij
+            self.weights_mu = paper_functions.update_weights_mu_Fisher(dataset,
+                                                                       self.weights_lambda,
+                                                                       self.weights_mu,
+                                                                       learning_rate)
 
             if debug and epoch % 500 == 0:
                 self.objectives.append(paper_functions.objective_func(self.quantum_system,

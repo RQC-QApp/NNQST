@@ -15,6 +15,7 @@ def random_phases(size):
         List of random phases.
 
     """
+    np.random.seed(1)
     return 2 * np.pi * np.random.random(size)
 
 

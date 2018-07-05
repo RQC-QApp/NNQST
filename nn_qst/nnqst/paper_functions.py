@@ -33,9 +33,10 @@ def objective_func(quantum_system, weights_lambda, weights_mu, dataset, basis_se
         occurs = list(dataset_b.values())  # vector of occurencies
 
         for state in rot_state.keys():
-            psi_i = rot_state[state]
-            n_occurs = dataset_b[state]
-            tmp += n_occurs * np.log(abs(psi_i)**2)
+            if state in dataset_b:
+                psi_i = rot_state[state]
+                n_occurs = dataset_b[state]
+                tmp += n_occurs * np.log(abs(psi_i)**2)
 
         tmp /= np.sum(occurs)
         res += tmp
@@ -253,6 +254,53 @@ def grad_mu_ksi(dataset, basis_set, weights_lambda, weights_mu):
         res += tmp.imag / (np.sum(occurs) * Nb)
 
     return res
+
+
+def update_weights_mu_Fisher(batch, weights_lambda, weights_mu, learning_rate):
+    weights_flatten = weights_mu.flatten()
+    # Fisher Information Matrix.
+
+    dimW = len(weights_flatten)
+    fim = np.zeros((dimW, dimW))
+    av_flatten_grad_mu = np.zeros(dimW)
+    basis_set = list(batch.keys())
+
+    n_tot = 0
+
+    for basis in basis_set:
+        sigmas = list(batch[basis].keys())
+        sigmas = np.array(sigmas)
+        sigmas = np.insert(sigmas, 0, 1, axis=1)
+        occurs = list(batch[basis].values())
+        for sigma in sigmas:
+            # calculating S_ij
+            n_occurs = batch[basis][tuple(sigma[1:])]
+            tmp = averaged_D_mu_Q_b(sigma, weights_lambda, weights_mu, basis).imag
+            flatten_grad_mu = tmp.flatten()
+
+            av_flatten_grad_mu += n_occurs * flatten_grad_mu
+            fim += n_occurs * np.outer(flatten_grad_mu, flatten_grad_mu)
+            # calculating <g_j>_B
+            n_tot += n_occurs
+
+    fim /= n_tot
+    av_flatten_grad_mu /= n_tot
+
+    fim += 1.e-5 * np.eye(dimW)
+
+    # print('fim', fim)
+    # print(n_tot)
+    # print('av_grad=', av_flatten_grad_mu)
+
+    fim_inv = np.linalg.inv(fim)
+    tmp = np.dot(fim, av_flatten_grad_mu)
+    denom = np.dot(av_flatten_grad_mu, np.matmul(fim, av_flatten_grad_mu))
+    eta = learning_rate  # / np.sqrt(denom)
+
+    upd_weights_mu = weights_mu.flatten() - eta * tmp
+    upd_weights_mu = upd_weights_mu.reshape(weights_mu.shape)
+
+    return upd_weights_mu
 
 
 if __name__ == '__main__':
