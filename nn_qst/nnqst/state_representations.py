@@ -10,7 +10,7 @@ def polar(z):
         z (complex): Number to convert.
 
     Returns:
-        Tuple of float for `r` and float for angle `theta`.
+        tuple: Tuple of float for `r` and float for angle `theta`.
 
     """
     a = z.real
@@ -23,14 +23,14 @@ def polar(z):
 
 
 def dict_to_quantum_system(quantum_dict):
-    """Converts dict of states and corresponding coefficients into three
+    """Convert dict of states and corresponding coefficients into three
     lists - of states, of amplitudes and of phases.
 
     Args:
         quantum_dict (dict): States and corresponding probabilities.
 
     Returns:
-        Tuple of three lists -- `quantum_system`, `amplitudes`, `phases`.
+        tuple: Tuple of three lists -- `quantum_system`, `amplitudes`, `phases`.
 
     """
     phases = list()
@@ -57,38 +57,31 @@ def into_dict(dataset):
 
     """
     dataset = dataset.copy()
-    dataset = list(map(lambda x: x.astype('int'), dataset))
-    dataset = list(map(lambda x: ''.join(map(str, x)), dataset))
     dataset = dict(collections.Counter(dataset))
 
     num_samples = np.sum(list(dataset.values()))
-
     for state in dataset:
         dataset[state] = np.sqrt(dataset[state] / num_samples)
 
     return dataset
 
 
-def dict_to_hist(quantum_dict):
-    """Converts dict of states into histogram - list of tuples of states and corresponding probabilities.
+def get_probabilities(quantum_system):
+    """Convert dict of states into histogram - list of tuples of states and corresponding probabilities.
 
     Args:
-        quantum_dict (dict): Dict of states and corresponding coefficients.
+        quantum_system (dict): Dict of states and corresponding coefficients.
 
     Returns:
-        np.array of tuples (state, probability).
+        list: list of tuples (state, probability).
 
     """
-    res = list()
-    print('qdict=', quantum_dict)
-    for state in quantum_dict:
-        tmp = (state, abs(quantum_dict[state]) ** 2)  # State and corresponding probability.
-        res.append(tmp)
-    return np.array(res)
+    res = [(state, abs(quantum_system[state]) ** 2) for state in quantum_system]  # State and corresponding probability.
+    return res
 
 
-def dataset_to_hist(dataset):
-    """Turns `dataset` into statistics: elements and theirs occurrences.
+def get_occurrences(dataset):
+    """Turn `dataset` into statistics: elements and theirs occurrences.
 
     Args:
         dataset (np.array): Dataset of states.
@@ -97,12 +90,11 @@ def dataset_to_hist(dataset):
         tuple: np.array of occurrences and np.array of states.
 
     """
-    cntr = collections.Counter(map(tuple, dataset))
+    cntr = collections.Counter(dataset)
 
-    tmp = list(cntr.items())
+    tmp = cntr.items()
     data_hist = list(map(lambda x: x[0], tmp))
-    data_hist = np.array(list(map(list, data_hist)), dtype=int)
-    occurs = np.array(list(map(lambda x: x[1], tmp)))
+    occurs = list(map(lambda x: x[1], tmp))
 
     return occurs, data_hist
 

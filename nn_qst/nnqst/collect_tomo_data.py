@@ -3,22 +3,16 @@ Quantum Tomography Data Collection module
 """
 
 import numpy as np
-from functools import reduce
-from re import match
 from itertools import product
 
-from qiskit.tools.qi.qi import vectorize, devectorize, outer
 
-import Qconfig
-from qiskit import QuantumProgram
 ###############################################################
 # Tomography circuit generation
 ###############################################################
 
 def build_state_tomography_circuits(Q_program, name, qubits, qreg, creg,
                                     silent=False):
-    """
-    Add state tomography measurement circuits to a QuantumProgram.
+    """Add state tomography measurement circuits to a QuantumProgram.
 
     The quantum program must contain a circuit 'name', which is treated as a
     state preparation circuit. This function then appends the circuit with a
@@ -29,8 +23,8 @@ def build_state_tomography_circuits(Q_program, name, qubits, qreg, creg,
     Returns:
         A list of names of the added quantum state tomography circuits.
         Example: ['circ_meas_X', 'circ_measY', 'circ_measZ']
-    """
 
+    """
     labels = __add_meas_circuits(Q_program, name, qubits, qreg, creg)
     if not silent:
         print('>> created state tomography circuits for "%s"' % name)
@@ -50,8 +44,8 @@ def __tomo_dicts(qubits, basis=None, states=False):
 
     Returns:
         A new list of tomo_dict
-    """
 
+    """
     if isinstance(qubits, int):
         qubits = [qubits]
 
@@ -68,42 +62,40 @@ def __tomo_dicts(qubits, basis=None, states=False):
 
 
 def __add_meas_circuits(Q_program, name, qubits, qreg, creg):
-    """
-    Add measurement circuits to a quantum program.
+    """Add measurement circuits to a quantum program.
 
     See: build_state_tomography_circuits.
          build_process_tomography_circuits.
-    """
 
+    """
     orig = Q_program.get_circuit(name)
 
     labels = []
 
     for dic in __tomo_dicts(qubits):
 
-        # Construct meas circuit name
+        # Construct meas circuit name.
         label = '_meas_'
         for qubit, op in dic.items():
-            label += op #+ str(qubit)
+            label += op  # + str(qubit)
         circuit = Q_program.create_circuit(label, [qreg], [creg])
 
-        # add gates to circuit
+        # Add gates to circuit.
         for qubit, op in dic.items():
             circuit.barrier(qreg[qubit])
             if op == "X":
-                circuit.u2(0., np.pi, qreg[qubit])  # H
+                circuit.u2(0., np.pi, qreg[qubit])  # H.
             elif op == "Y":
-                circuit.u2(0., 0.5 * np.pi, qreg[qubit])  # H.S^*
+                circuit.u2(0., 0.5 * np.pi, qreg[qubit])  # H.S^*.
             circuit.measure(qreg[qubit], creg[qubit])
-        # add circuit to QuantumProgram
-        Q_program.add_circuit(name+label, orig + circuit)
-        # add label to output
-        labels.append(name+label)
-        # delete temp circuit
+        # Add circuit to QuantumProgram.
+        Q_program.add_circuit(name + label, orig + circuit)
+        # Add label to output.
+        labels.append(name + label)
+        # delete temp circuit.
         del Q_program._QuantumProgram__quantum_program[label]
 
     return labels
-
 
 
 ###############################################################
@@ -112,6 +104,7 @@ def __add_meas_circuits(Q_program, name, qubits, qreg, creg):
 
 def __tomo_labels(name, qubits, basis=None, states=False):
     """Helper function.
+
     """
     labels = []
     state = {0: 'p', 1: 'm'}
@@ -123,13 +116,12 @@ def __tomo_labels(name, qubits, basis=None, states=False):
         else:
             for qubit, op in dic.items():
                 label += op[0] + str(qubit)
-        labels.append(name+label)
+        labels.append(name + label)
     return labels
 
 
 def state_tomography_circuit_names(name, qubits):
-    """
-    Return a list of state tomography circuit names.
+    """Return a list of state tomography circuit names.
 
     This list is the same as that returned by the
     build_state_tomography_circuits function.
@@ -141,8 +133,10 @@ def state_tomography_circuit_names(name, qubits):
 
     Returns:
         A list of circuit names.
+
     """
     return __tomo_labels(name + '_meas', qubits)
+
 
 ###############################################################
 # Tomography preparation and measurement bases
@@ -152,7 +146,6 @@ def state_tomography_circuit_names(name, qubits):
 # This corresponds to measurements in the X, Y, Z basis where
 # Outcomes 0,1 are the +1,-1 eigenstates respectively.
 # State preparation is also done in the +1 and -1 eigenstates.
-
 __DEFAULT_BASIS = {'X': [np.array([[0.5, 0.5],
                                    [0.5, 0.5]]),
                          np.array([[0.5, -0.5],
@@ -166,12 +159,13 @@ __DEFAULT_BASIS = {'X': [np.array([[0.5, 0.5],
                          np.array([[0, 0],
                                    [0, 1]])]}
 
+
 def build_tomo_curcuit_core(Q_program, qreg, creg):
-    '''
-    Prepare quantum state for tomography reconstruction.
+    """Prepare quantum state for tomography reconstruction.
     The state could be arbitrary.
-    '''
-    # Example state with 3 qubits
+
+    """
+    # Example state with 3 qubits.
     circuit_name = 'tomo_c'
     my_circuit = Q_program.create_circuit(circuit_name, [qreg], [creg])
     my_circuit.h(qreg[0])
@@ -186,20 +180,20 @@ def build_tomo_curcuit_core(Q_program, qreg, creg):
 
     return my_circuit
 
+
 def collect_tomo_data(Q_program, backend, shots):
-    '''
-    Executing data collection from IBM backend.
+    """Executing data collection from IBM backend.
     The measurements bases consists of the complete set of 3**n bases states.
-    '''
-    qubits = [0,1,2]
+
+    """
+    qubits = [0, 1, 2]
     n_qubits = len(qubits)
     qreg = Q_program.create_quantum_register("q", n_qubits)
     creg = Q_program.create_classical_register("c", n_qubits)
 
-    _core_circuit = build_tomo_curcuit_core(Q_program, qreg, creg)
     _tomo_circuits = build_state_tomography_circuits(Q_program, 'tomo_c', qubits, qreg, creg)
     result = Q_program.execute(_tomo_circuits, backend=backend, shots=shots)
-        
+
     tomo_data = {}
     for i_circ in range(len(_tomo_circuits)):
         data = result.get_data(_tomo_circuits[i_circ])

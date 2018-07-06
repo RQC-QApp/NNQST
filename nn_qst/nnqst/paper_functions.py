@@ -4,6 +4,15 @@ from . import generators, state_operations
 
 
 def Z_lambda(weights):
+    """Calculate statisticsl sum Z_lambda.
+
+    Args:
+        weights (np.array):
+
+    Returns:
+        float:
+
+    """
     num_units = weights.shape[0] - 1
     all_states = generators.get_all_states(num_units)
     all_states = np.insert(all_states, 0, 1, axis=1)
@@ -12,6 +21,19 @@ def Z_lambda(weights):
 
 
 def objective_func(quantum_system, weights_lambda, weights_mu, dataset, basis_set):
+    """Calculate objective function.
+
+    Args:
+        quantum_system (list):
+        weights_lambda (np.array):
+        weights_mu (np.array):
+        dataset (dict): Measurements
+        basis_set (list): List of bases (strings).
+
+    Returns:
+        float:
+
+    """
     res = 0
     Nqub = weights_lambda.shape[0] - 1
     Nb = len(basis_set)
@@ -36,16 +58,25 @@ def objective_func(quantum_system, weights_lambda, weights_mu, dataset, basis_se
             if state in dataset_b:
                 psi_i = rot_state[state]
                 n_occurs = dataset_b[state]
-                tmp += n_occurs * np.log(abs(psi_i)**2)
+                tmp += n_occurs * np.log(abs(psi_i) ** 2)
 
         tmp /= np.sum(occurs)
         res += tmp
     res *= -1. / Nb
+
     return res
 
 
 def p_k_sigma_h(sigma, h, weights):
     """(A2) of arxive paper. (6) of Nature paper.
+
+    Args:
+        sigma (np.array):
+        h (np.array):
+        weights (np.array):
+
+    Returns:
+        np.array:
 
     """
     #             v-- W                                   v-- b_bias              v-- c_bias.
@@ -53,14 +84,24 @@ def p_k_sigma_h(sigma, h, weights):
     return np.exp(tot)
 
 
-def boltzmann_margin_distribution(sigma, weights):
+def boltzmann_margin_distribution(sigma, weights, verbose=False):
     """(A3) of arxive paper. (7) of Nature paper.
+
+    Args:
+        sigma (np.array):
+        weights (np.array):
+        verbose (bool, optional): Defaults to False.
+
+    Returns:
+        np.array:
 
     """
     sigma[0] = 1
     tmp = sigma.dot(weights)
 
     tmp = tmp[1:]  # Ignore bias unit.
+    if verbose:
+        print(tmp)
     tmp = 1 + np.exp(tmp)
 
     tmp = np.log(tmp)
@@ -71,22 +112,50 @@ def boltzmann_margin_distribution(sigma, weights):
     return np.exp(tmp)
 
 
-def p_k(sigma, weights):
+def p_k(sigma, weights, verbose=False):
     """(A3) of arxive paper.
 
+    Args:
+        sigma (np.array):
+        weights (np.array):
+        verbose (bool, optional): Defaults to False.
+
+    Returns:
+        np.array:
+
     """
-    return boltzmann_margin_distribution(sigma, weights)
+    return boltzmann_margin_distribution(sigma, weights, verbose)
 
 
 def phi_k(sigma, weights):
     """(A4)~ of arxive paper.
 
+    Args:
+        sigma (np.array):
+        weights (np.array):
+
+    Returns:
+        np.array:
+
     """
+    # print('> p_k:', p_k(sigma, weights))
+    # print('> sigma:', sigma)
+    # print('> weights:', weights)
+    # print(' ')
     return np.log(p_k(sigma, weights))
 
 
 def psi_lambda_mu(sigma, Z_lambda, weights_lambda, weights_mu):
     """(A4) of arxive paper.
+
+    Args:
+        sigma (np.array):
+        Z_lambda (float):
+        weights_lambda (np.array):
+        weights_mu (np.array):
+
+    Returns:
+        complex:
 
     """
     tmp = 1j * phi_k(sigma, weights_mu) / 2
@@ -99,7 +168,11 @@ def D_k(sigma, weights):
     """(A8) and (A9) of arxive paper.
 
     Args:
-        sigma (np.array): input.
+        sigma (np.array): Input.
+        weights (np.array):
+
+    Returns:
+        np.array:
 
     """
     sigma[0] = 1
@@ -122,22 +195,32 @@ def D_k(sigma, weights):
 
 def averaged_D_lambda_Q_b(dataset, weights_lambda, weights_mu):
     """(A16) of arxive paper. (15) of Nature paper.
+    Measurements only in Z basis !!!
+
+    Args:
+    dataset (dict):
+    weights_lambda (np.array):
+    weights_mu (np.array):
+
+    Returns:
+        np.array:
 
     """
-    ''' Measurements onl;y in Z basis !!! '''
-
     Nqub = weights_lambda.shape[0] - 1
 
-    dataset_Z = dataset['I' * Nqub]  # Selecting only Z - basis measurements
-    sigmas = np.array(list(dataset_Z.keys()))  # vector of sigmas
+    dataset_Z = dataset['I' * Nqub]  # Selecting only Z - basis measurements.
+    # Array of sigmas.
+    sigmas = np.array(list(dataset_Z.keys()))
     sigmas = np.insert(sigmas, 0, 1, axis=1)
-    occurs = np.array(list(dataset_Z.values()))  # vector of occurrences for each sigma
+    occurs = list(dataset_Z.values())  # List of occurrences for each sigma.
 
     tmp2 = np.zeros((len(sigmas), weights_lambda.shape[0], weights_lambda.shape[1]))
     for i in range(len(sigmas)):
         sigma = sigmas[i, :]
-        n_occur = dataset_Z[tuple(sigma[1:])]
+        sigma_state = tuple(sigma[1:])
+        n_occur = dataset_Z[sigma_state]
         tmp2[i, :, :] = n_occur * D_k(sigma, weights_lambda)
+
     tmp2 = np.sum(tmp2, axis=0)
     tmp2 /= np.sum(occurs)
     return tmp2
@@ -145,6 +228,13 @@ def averaged_D_lambda_Q_b(dataset, weights_lambda, weights_mu):
 
 def averaged_D_lambda_p_lambda_PRECISE(dataset, weights_lambda):
     """(A18) of arxive paper. (17) of Nature paper.
+
+    Args:
+        dataset (dict):
+        weights_lambda (np.array):
+
+    Returns:
+        np.array:
 
     """
     Nqub = weights_lambda.shape[0] - 1
@@ -162,12 +252,18 @@ def averaged_D_lambda_p_lambda_PRECISE(dataset, weights_lambda):
 
 def grad_lambda_ksi(dataset, weights_lambda, weights_mu, precise=True):
     """(A14) of arxive paper. (13) of Nature paper.
+    Gradient for amplitudes reconstruction. Note that in this version we perform measurements only in Z-basis.
+
+    Args:
+    dataset (dict):
+    weights_lambda (np.array):
+    weights_mu (np.array):
+    precise (bool, optional): Defaults to True.
+
+    Returns:
+        np.array:
 
     """
-    '''
-        Gradient for amplitudes reconstruction.
-        Note that in this version we perform measurements only in Z-basis.
-    '''
     N_b = 1
 
     # PRECISE method with exact evaluation of partition function Z.
@@ -185,15 +281,16 @@ def grad_lambda_ksi(dataset, weights_lambda, weights_mu, precise=True):
 
 def averaged_D_mu_Q_b(sigma_b, weights_lambda, weights_mu, basis):
     """(A16) of arxive paper. (15) of Nature paper.
+
     Args:
-        sigma_b (np.array): spin configuration, an array of {1,0}, len = N+1
-        weights_lambda (np.array): weights for amplitudes RBM, shape = (N+1, M+1)
-        weights_mu (np.array): weights for phases RBM, shape = (N+1, M+1)
-        basis (string): a string of basis transforms for each qubit, len = N
-                        example: 'IIHKII'
-                        I - identity
-                        H - rotation in X basis
-                        K - rotation in Y basis
+        sigma_b (np.array): Spin configuration, an array of {1,0}, len=N+1.
+        weights_lambda (np.array): Weights for amplitudes RBM, shape=(N+1, M+1).
+        weights_mu (np.array): Weights for phases RBM, shape=(N+1, M+1)
+        basis (string): String of basis transforms for each qubit, len=N
+            (e.g. 'IIHKII', where I - identity, H - rotation in X basis, K - rotation in Y basis).
+
+    Returns:
+        float:
 
     """
     Nqub = weights_lambda.shape[0] - 1
@@ -206,7 +303,7 @@ def averaged_D_mu_Q_b(sigma_b, weights_lambda, weights_mu, basis):
 
     if basis.find('H') != -1:
         symb = 'H'
-        delta_symb = 1  # coefficient due to H matrix.
+        delta_symb = 1  # Coefficient due to H matrix.
     elif basis.find('K') != -1:
         symb = 'K'
         delta_symb = -1j  # Coefficient due to K matrix.
@@ -223,9 +320,8 @@ def averaged_D_mu_Q_b(sigma_b, weights_lambda, weights_mu, basis):
 
     xi_lambda_mu = np.sqrt(prob1 / prob0) * np.exp(1j * (phi1 - phi0) / 2.)  # Eq. B18.
 
-    numerator = D_k(sigma0, weights_lambda) + D_k(sigma1, weights_lambda) * xi_lambda_mu * (1. - 2 * sigma_b[indx_b]) * delta_symb
-
-    denominator = 1. + xi_lambda_mu * (1. - 2 * sigma_b[indx_b]) * delta_symb
+    numerator = D_k(sigma0, weights_lambda) + D_k(sigma1, weights_lambda) * xi_lambda_mu * (1. - 2. * sigma_b[indx_b]) * delta_symb
+    denominator = 1. + xi_lambda_mu * (1. - 2. * sigma_b[indx_b]) * delta_symb
 
     aver_D_mu_Qb = numerator / denominator
 
@@ -234,14 +330,21 @@ def averaged_D_mu_Q_b(sigma_b, weights_lambda, weights_mu, basis):
 
 def grad_mu_ksi(dataset, basis_set, weights_lambda, weights_mu):
     """(A14) of arxive paper. (13) of Nature paper.
+    Gradient for phases reconstruction.
+
+    Args:
+        dataset (dict):
+        basis_set (list): List of bases (strings).
+        weights_lambda (np.array):
+        weights_mu (np.array):
+
+    Returns:
+        float:
 
     """
-    '''
-        Gradient for phases reconstruction.
-    '''
     Nb = len(dataset.keys())
 
-    tmp, res = 0, 0
+    tmp, res = 0., 0.
     for basis in basis_set:
         sigmas = list(dataset[basis].keys())
         sigmas = np.array(sigmas)
@@ -249,16 +352,28 @@ def grad_mu_ksi(dataset, basis_set, weights_lambda, weights_mu):
         occurs = list(dataset[basis].values())
 
         for sigma in sigmas:
-            n_occurs = dataset[basis][tuple(sigma[1:])]
+            n_occurs = dataset[basis][sigma[1:]]
             tmp += n_occurs * averaged_D_mu_Q_b(sigma, weights_lambda, weights_mu, basis)
         res += tmp.imag / (np.sum(occurs) * Nb)
 
     return res
 
 
-def update_weights_mu_Fisher(batch, weights_lambda, weights_mu, learning_rate):
+def update_weights_mu_Fisher(batch, weights_lambda, weights_mu, learning_rate, use_denom=False):
+    """Fisher Information Matrix.
+
+    Args:
+        batch (dict):
+        weights_lambda (np.array):
+        weights_mu (np.array):
+        learning_rate (float):
+        use_denom (bool, optional): Defaults to False.
+
+    Returns:
+        np.array: Matrix of gradients for `weigths_mu`.
+
+    """
     weights_flatten = weights_mu.flatten()
-    # Fisher Information Matrix.
 
     dimW = len(weights_flatten)
     fim = np.zeros((dimW, dimW))
@@ -266,21 +381,20 @@ def update_weights_mu_Fisher(batch, weights_lambda, weights_mu, learning_rate):
     basis_set = list(batch.keys())
 
     n_tot = 0
-
     for basis in basis_set:
         sigmas = list(batch[basis].keys())
         sigmas = np.array(sigmas)
         sigmas = np.insert(sigmas, 0, 1, axis=1)
-        occurs = list(batch[basis].values())
         for sigma in sigmas:
-            # calculating S_ij
-            n_occurs = batch[basis][tuple(sigma[1:])]
+            sigma_tup = tuple(sigma[1:])
+            # Calculating S_ij.
+            n_occurs = batch[basis][sigma_tup]
             tmp = averaged_D_mu_Q_b(sigma, weights_lambda, weights_mu, basis).imag
             flatten_grad_mu = tmp.flatten()
 
             av_flatten_grad_mu += n_occurs * flatten_grad_mu
             fim += n_occurs * np.outer(flatten_grad_mu, flatten_grad_mu)
-            # calculating <g_j>_B
+            # Calculating <g_j>_B.
             n_tot += n_occurs
 
     fim /= n_tot
@@ -288,14 +402,12 @@ def update_weights_mu_Fisher(batch, weights_lambda, weights_mu, learning_rate):
 
     fim += 1.e-5 * np.eye(dimW)
 
-    # print('fim', fim)
-    # print(n_tot)
-    # print('av_grad=', av_flatten_grad_mu)
-
-    fim_inv = np.linalg.inv(fim)
     tmp = np.dot(fim, av_flatten_grad_mu)
-    denom = np.dot(av_flatten_grad_mu, np.matmul(fim, av_flatten_grad_mu))
-    eta = learning_rate  # / np.sqrt(denom)
+    if use_denom:
+        denom = np.dot(av_flatten_grad_mu, np.matmul(fim, av_flatten_grad_mu))
+        eta = learning_rate / np.sqrt(denom)
+    else:
+        eta = learning_rate
 
     upd_weights_mu = weights_mu.flatten() - eta * tmp
     upd_weights_mu = upd_weights_mu.reshape(weights_mu.shape)

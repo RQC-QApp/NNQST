@@ -17,12 +17,12 @@ class RBM_QST:
 
     """
     def __init__(self, quantum_system, num_visible, num_hidden):
-        """Short summary.
+        """Initialisation.
 
         Args:
-            quantum_system (list): Description of parameter `quantum_system`.
-            num_visible (int): Number of visible units.
-            num_hidden (int): Number of hidden units.
+            quantum_system (list):
+            num_visible (int):
+            num_hidden (int):
 
         """
         self.num_hidden = num_hidden
@@ -32,7 +32,7 @@ class RBM_QST:
         np_rng = np.random.RandomState(42)
 
         self.quantum_system = quantum_system
-        # Amplitudes -- `lambda`.
+        # Amplitudes `lambda`.
         self.weights_lambda = np.asarray(np_rng.uniform(
                                          low=-0.1 * np.sqrt(6. / (num_hidden + num_visible)),
                                          high=0.1 * np.sqrt(6. / (num_hidden + num_visible)),
@@ -41,7 +41,7 @@ class RBM_QST:
         self.weights_lambda = np.insert(self.weights_lambda, 0, 0, axis=0)
         self.weights_lambda = np.insert(self.weights_lambda, 0, 0, axis=1)
 
-        # Phases -- `mu`.
+        # Phases `mu`.
         self.weights_mu = np.asarray(np_rng.uniform(
                                      low=-0.1 * np.sqrt(6. / (num_hidden + num_visible)),
                                      high=0.1 * np.sqrt(6. / (num_hidden + num_visible)),
@@ -54,26 +54,25 @@ class RBM_QST:
         """Train the machine to learn amplitudes.
 
         Args:
-            data_raw (np.array): A matrix where each row is a training example consisting
+            dataset (np.array): A matrix where each row is a training example consisting
                 of the states of visible units.
+            max_epochs (int, optional): Defaults to 1000.
+            learning_rate (float, optional): Defaults to 0.1.
+            debug (bool, optional): Defaults to False.
+            precise (bool, optional): Defaults to True.
 
         """
         # Converting dataset to a histogram representation.
         Nqub = self.num_visible
         dataset_Z = dataset['I' * Nqub]
 
-        # TODO: `occurs`-variable is unused.
-        # occurs, sigmas = np.array(list(dataset_Z.values())), np.array(list(dataset_Z.keys()))
         sigmas = np.array(list(dataset_Z.keys()))
+        sigmas = np.insert(sigmas, 0, 1, axis=1)  # Insert bias units of 1 into the first column.
 
-        # Insert bias units of 1 into the first column.
-        sigmas = np.insert(sigmas, 0, 1, axis=1)
-        # data_raw = np.insert(data_raw, 0, 1, axis=1)
-
-        # Saving objective function
         basis_set_Z = ['I' * Nqub]
         for epoch in range(max_epochs):
             if debug and epoch % 500 == 0:
+                # Saving objective function.
                 self.objectives.append(paper_functions.objective_func(self.quantum_system,
                                                                       self.weights_lambda,
                                                                       self.weights_mu,
@@ -92,8 +91,12 @@ class RBM_QST:
         """Train the machine to learn phases.
 
         Args:
-            data_raw (dict): Dict of {basis: list of states}.
-            operations (str): List of strings of `operations`.
+            dataset (dict): Dict of {basis: list of states}.
+            basis_set (list): List of bases (strings).
+            max_epochs (int, optional): Defaults to 1000.
+            learning_rate (float, optional): Defaults to 0.1.
+            debug (bool, optional): Defaults to False.
+            precise (bool, optional): Defaults to False.
 
         """
         for epoch in range(max_epochs):
@@ -106,11 +109,12 @@ class RBM_QST:
             # Calculating of gradients.
             # All the operations of rotations were carried out here
             # and just `occurs` and `data_hist` are passed to (15) of Nature paper.
-
+            #
             # Old update rule without S_ij Fisher Information matrix
             # gradients = paper_functions.grad_mu_ksi(dataset, basis_set, self.weights_lambda, self.weights_mu)
             # self.weights_mu -= learning_rate * gradients
-            # New update rule with S_ij
+            #
+            # New update rule with S_ij.
             self.weights_mu = paper_functions.update_weights_mu_Fisher(dataset,
                                                                        self.weights_lambda,
                                                                        self.weights_mu,
@@ -131,8 +135,12 @@ class RBM_QST:
 
         Note that we only initialize the network *once*, so these samples are correlated.
 
+        Args:
+            num_samples (int):
+            debug (bool, optional): Defaults to False.
+
         Returns:
-            samples: A matrix, where each row is a sample of the visible units produced while the network was
+            np.array: A matrix, where each row is a sample of the visible units produced while the network was
                 daydreaming.
 
         """
@@ -169,6 +177,10 @@ class RBM_QST:
 
         Args:
             visible (np.array): Vector of zeros and ones.
+            states (bool, optional): Whether returned array consists of 1s and 0s or probabilities (floats from 0 to 1). Defaults to False.
+
+        Returns:
+            np.array:
 
         """
         visible = np.insert(visible, 0, 1, axis=0)
@@ -187,6 +199,15 @@ class RBM_QST:
             return hidden_probs
 
     def _logistic(self, x):
+        """Calculate sigmoid.
+
+        Args:
+            x (float):
+
+        Returns:
+            float:
+
+        """
         return 1.0 / (1 + np.exp(-x))
 
 

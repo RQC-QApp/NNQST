@@ -56,10 +56,19 @@ def evolution(state, operations, coefficient=1, verbose=False):
         verbose (bool, optional): Printing log info. Defaults to False.
 
     Returns:
-        Dict of states and corresponding coefficients.
+        dict: Dict of states and corresponding coefficients.
 
     """
-    def apply_k(value: int):
+    def apply_k(value):
+        """Apply K gate.
+
+        Args:
+            value (int): 0 or 1.
+
+        Returns:
+            complex: Coefficient to the state (depending on `value`) after applying H gate.
+
+        """
         assert value in [0, 1]
 
         res = dict()
@@ -71,7 +80,16 @@ def evolution(state, operations, coefficient=1, verbose=False):
             res[1] = 1j / np.sqrt(2)
         return res
 
-    def apply_h(value: int):
+    def apply_h(value):
+        """Apply H gate.
+
+        Args:
+            value (int): 0 or 1.
+
+        Returns:
+            float: Coefficient to the state (depending on `value`) after applying H gate.
+
+        """
         assert value in [0, 1]
 
         res = dict()
@@ -114,33 +132,39 @@ def evolution(state, operations, coefficient=1, verbose=False):
     return all_states
 
 
-def system_evolution(quantum_system, operations, amplitudes, phases):
-    """Performs an evolution/rotation for `quantum_system` using the
+def system_evolution(states, operations, amplitudes, phases):
+    """Performs an evolution/rotation for `states` using the
     sequence of `operations`.
 
     Args:
-        quantum_system (list): List of states.
+        states (list): List of tuples.
         operations (str): Sequence of operations.
         amplitudes (list): List of floats.
         phases (list): List of floats.
 
     Returns:
-        Dict of {states: coefficients}.
+        dict: Dict of {states: coefficients}.
 
     """
     total = {}
 
-    for i in range(len(quantum_system)):
+    for i in range(len(states)):
         # Pass state, operations and coefficient == a * exp(i * b).
-        state = tuple([int(a) for a in quantum_system[i]])
-        tmp = evolution(state, operations,
-                        amplitudes[state] * np.exp(1j * phases[state]))
+        tmp = evolution(states[i], operations,
+                        amplitudes[states[i]] * np.exp(1j * phases[states[i]]))
         total = merge_dicts(total, tmp)
     return total
 
 
 def merge_dicts(dict1, dict2):
     """Sums up two dicts into the new one.
+
+    Args:
+        dict1 (dict):
+        dict2 (dict):
+
+    Returns:
+        dict:
 
     """
     tmp = {k: dict1.get(k, 0) + dict2.get(k, 0) for k in set(dict1) | set(dict2)}

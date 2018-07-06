@@ -6,11 +6,30 @@ from . import paper_functions, generators
 
 
 def normalize(vector):
+    """Normalize vector.
+
+    Args:
+        vector (np.array):
+
+    Returns:
+        np.array:
+
+    """
     return np.sqrt(vector / vector.sum())
 
 
 def psi_RBM(trained_RBM):
-    psi_RBM = {}
+    """Wave function of learned state by `trained_RBM`.
+
+    Args:
+        trained_RBM (RBM_QST):
+
+    Returns:
+        dict:
+
+    """
+    psi_RBM = dict()
+
     Nqub = trained_RBM.num_visible
     all_states = generators.get_all_states(Nqub)
     all_states = np.insert(all_states, 0, 1, axis=1)
@@ -20,7 +39,8 @@ def psi_RBM(trained_RBM):
         prob_k = paper_functions.p_k(sigma, trained_RBM.weights_lambda)
         phase_k = paper_functions.phi_k(sigma, trained_RBM.weights_mu)
 
-        psi_RBM[tuple(sigma[1:])] = np.sqrt(prob_k / stat_sum) * np.exp(1j * phase_k / 2.)
+        sigma_tup = tuple(sigma[1:])
+        psi_RBM[sigma_tup] = np.sqrt(prob_k / stat_sum) * np.exp(1j * phase_k / 2.)
     return psi_RBM
 
 
@@ -42,16 +62,16 @@ def plot_histogram(data, number_to_keep=False):
     values = np.array([data[key] for key in labels], dtype=float)
     pvalues = values / sum(values)
     numelem = len(values)
-    ind = np.arange(numelem)  # the x locations for the groups
-    width = 0.35  # the width of the bars
+    ind = np.arange(numelem)  # The x locations for the groups.
+    width = 0.35  # The width of the bars.
     _, ax = plt.subplots(figsize=(20, 10))
     rects = ax.bar(ind, pvalues, width, color='seagreen')
-    # add some text for labels, title, and axes ticks
+    # Add some text for labels, title, and axes ticks.
     ax.set_ylabel('Probabilities', fontsize=12)
     ax.set_xticks(ind)
     ax.set_xticklabels(labels, fontsize=12, rotation=70)
     ax.set_ylim([0., min([1.2, max([1.2 * val for val in pvalues])])])
-    # attach some text labels
+    # Attach some text labels.
     for rect in rects:
         height = rect.get_height()
         ax.text(rect.get_x() + rect.get_width() / 2., 1.05 * height,
