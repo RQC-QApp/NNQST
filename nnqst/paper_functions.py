@@ -1,3 +1,11 @@
+# File name: paper_functions.py
+# Authors: Yaroslav Kharkov <y.kharkov@unsw.edu.au>, Anton Karazeev <a.karazeev@rqc.ru>
+# Based on https://www.nature.com/articles/s41567-018-0048-5 paper
+#
+# This file is part of NNQST project (https://github.com/RQC-QApp/NNQST)
+#
+# Description: Functions from original paper (https://www.nature.com/articles/s41567-018-0048-5).
+
 import numpy as np
 
 from . import generators, state_operations
@@ -138,10 +146,6 @@ def phi_k(sigma, weights):
         np.array:
 
     """
-    # print('> p_k:', p_k(sigma, weights))
-    # print('> sigma:', sigma)
-    # print('> weights:', weights)
-    # print(' ')
     return np.log(p_k(sigma, weights))
 
 

@@ -1,3 +1,11 @@
+# File name: rbm_qst.py
+# Authors: Yaroslav Kharkov <y.kharkov@unsw.edu.au>, Anton Karazeev <a.karazeev@rqc.ru>
+# Based on https://www.nature.com/articles/s41567-018-0048-5 paper
+#
+# This file is part of NNQST project (https://github.com/RQC-QApp/NNQST)
+#
+# Description: Module with RBM to perform quantum state tomography.
+
 import numpy as np
 
 from . import paper_functions

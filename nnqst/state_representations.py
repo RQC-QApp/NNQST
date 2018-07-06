@@ -1,3 +1,11 @@
+# File name: state_representations.py
+# Authors: Yaroslav Kharkov <y.kharkov@unsw.edu.au>, Anton Karazeev <a.karazeev@rqc.ru>
+# Based on https://www.nature.com/articles/s41567-018-0048-5 paper
+#
+# This file is part of NNQST project (https://github.com/RQC-QApp/NNQST)
+#
+# Description: Possible ways to represent quantum state (as lists, dicts, etc.).
+
 import numpy as np
 import collections
 import math
