@@ -1,4 +1,4 @@
-## Neural Network Quantum State Tomography
+## Neural Network Quantum State Tomography <img src="img/rqc.png" href='http://rqc.ru/' width='15%' align='right'>
 (based on [Neural-network quantum state tomography](https://www.nature.com/articles/s41567-018-0048-5) paper)
 
 ## Authors
