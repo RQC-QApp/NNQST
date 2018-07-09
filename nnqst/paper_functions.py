@@ -35,7 +35,7 @@ def objective_func(quantum_system, weights_lambda, weights_mu, dataset, basis_se
         quantum_system (list):
         weights_lambda (np.array):
         weights_mu (np.array):
-        dataset (dict): Measurements
+        dataset (dict): Measurements.
         basis_set (list): List of bases (strings).
 
     Returns:
@@ -47,7 +47,7 @@ def objective_func(quantum_system, weights_lambda, weights_mu, dataset, basis_se
     Nb = len(basis_set)
     stat_sum = Z_lambda(weights_lambda)
 
-    amplitudes, phases = {}, {}
+    amplitudes, phases = dict(), dict()
     all_states = generators.get_all_states(Nqub)
     all_states = np.insert(all_states, 0, 1, axis=1)
 
@@ -71,6 +71,18 @@ def objective_func(quantum_system, weights_lambda, weights_mu, dataset, basis_se
         tmp /= np.sum(occurs)
         res += tmp
     res *= -1. / Nb
+
+    return res
+
+
+def objective_func_classic(weights_lambda, weights_mu, dataset):
+    res = 0
+
+    stat_sum = Z_lambda(weights_lambda)
+    res = np.sum(list(map(lambda x: np.log(abs(psi_lambda_mu(x, stat_sum, weights_lambda, weights_mu)) ** 2), dataset)))
+
+    res /= len(dataset)
+    res *= -1
 
     return res
 
